@@ -1,0 +1,17 @@
+# Apple Silicon / MPS-compatible pins. No CUDA-only packages.
+torch>=2.3
+transformers>=4.44
+accelerate>=0.33
+peft>=0.11
+datasets>=2.19
+bert-score>=0.3.13
+evaluate>=0.4.1
+scikit-learn>=1.4
+pandas>=2.1
+matplotlib>=3.8
+pyyaml>=6.0
+sentencepiece
+protobuf
+safetensors
+tqdm
+pytest>=8.0

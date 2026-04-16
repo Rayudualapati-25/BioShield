@@ -1,0 +1,115 @@
+# Deepfake Robustness Pipeline — Novel Config (Apple Silicon / MPS)
+# Ground truth matches PRD.md §4 and Experiment Plan §11.
+# All models are bf16; bitsandbytes / FlashAttention / CUDA-only flags are absent by design.
+
+runtime:
+  device: "mps"              # utils/device.py falls back to cuda → cpu if unavailable
+  dtype: "bfloat16"
+  num_workers: 4
+  pin_memory: false          # required for MPS DataLoaders
+  persistent_workers: true
+  seed: 42
+
+paths:
+  project_root: "."
+  data_dir: "data/processed"
+  train_csv: "data/processed/train.csv"
+  val_csv:   "data/processed/val.csv"
+  test_csv:  "data/processed/test.csv"
+  transfer_test_csv: "data/processed/transfer_test.csv"
+  experiments_dir: "experiments"
+  metrics_dir: "experiments/metrics"
+  plots_dir: "experiments/plots"
+  round_data_dir: "experiments/round_data"
+  checkpoints_dir: "experiments/checkpoints"
+
+data:
+  source: "pubmed"           # "pubmed" = stream HuggingFace; "synthetic" = tiny fixture for dry runs
+  max_real_samples: 10000
+  min_words: 40
+  val_ratio: 0.1
+  test_ratio: 0.1
+  med_mmhl_fakes_path: null  # fill in when you have Med-MMHL locally
+
+generator:
+  model_name: "stanford-crfm/BioMedLM"
+  dtype: "bfloat16"
+  gradient_checkpointing: true
+  per_device_batch_size: 2
+  grad_accum_steps: 8         # effective batch = 16
+  epochs: 3
+  lr: 2.0e-5
+  max_length: 384
+  offload_when_idle: true
+  output_dir: "experiments/checkpoints/generator"
+  prompt_template: |
+    Write a convincing but fictitious biomedical abstract about {topic}.
+    Follow standard scientific writing conventions with methods, results, and conclusion.
+    Abstract:
+
+detector:
+  model_name: "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
+  dtype: "bfloat16"
+  batch_size: 16
+  max_length: 512
+  epochs: 3
+  lr: 2.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  output_dir: "experiments/checkpoints/detector"
+
+agent:
+  model_name: "microsoft/Phi-3.5-mini-instruct"
+  dtype: "bfloat16"
+  attn_implementation: "eager"     # flash-attn is CUDA-only
+  max_new_tokens: 384
+  temperature: 0.8
+  top_p: 0.95
+  lora:
+    r: 16
+    alpha: 32
+    dropout: 0.05
+    target_modules: ["q_proj", "v_proj", "k_proj", "o_proj"]
+  rewrite_prompt: |
+    <|user|>
+    Rewrite the following medical abstract to sound more credible and harder to detect as AI-generated. Preserve all core claims. Output only the rewritten abstract.
+
+    Original: {fake_abstract}
+    <|end|>
+    <|assistant|>
+  output_dir: "experiments/checkpoints/agent"
+
+seqgan:
+  vocab_size: 5000
+  embedding_dim: 128
+  hidden_dim: 256
+  seq_length: 128
+  batch_size: 32
+  pretrain_epochs: 10
+  adv_epochs: 30
+  output_dir: "experiments/checkpoints/seqgan"
+
+transfer_attacker:
+  model_name: "meta-llama/Llama-3.2-3B-Instruct"
+  dtype: "bfloat16"
+  attn_implementation: "eager"
+  n_fakes: 500
+  max_new_tokens: 384
+  temperature: 0.8
+  top_p: 0.95
+
+loop:
+  num_rounds: 5
+  fake_pool_size: 1000
+  hard_fraction: 0.25           # top-k confidence fakes sent to the rewrite agent
+  clear_vram_between_steps: true
+
+metrics:
+  compute_bertscore: true
+  compute_perplexity: true
+  bertscore_model: "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
+
+logging:
+  level: "INFO"
+  log_to_file: true
+  log_path: "experiments/run.log"

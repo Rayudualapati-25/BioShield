@@ -112,6 +112,27 @@ python scripts/raid_benchmark.py --config configs/config_novel.yaml --benchmark 
 
 **Honest read:** these numbers are great *for the smoke test* but statistically noisy at n=40 (CI ±8%). The real paper numbers need 10k-scale data. The purpose of this run was to **prove the pipeline works end-to-end under the new stack** — which it does.
 
+### Smoke-test results — Conditions B and C (200-scale, 2 rounds, override config)
+
+Run via `configs/config_smoke_bcd.yaml` to de-risk the adversarial loop without committing the ~42h that 5-rounds × 1000-fakes would take. Generator output dir was pre-seeded with symlinks to zero-shot BioMistral so the loop skips fine-tuning. Condition D was **explicitly skipped** at user direction — it lives in the 10k paper run.
+
+| Condition | Generator | Agent | Detector retrain | Final AUC | Final F1 | **Evasion rate** |
+|---|---|---|---|---|---|---|
+| A — static_baseline | BioMistral (zero-shot) | — | n/a (one-shot) | 0.978 | 0.905 | **0.15** |
+| B — seqgan_only | SeqGAN | — | yes (each round) | 0.900 | 0.679 | **0.75** |
+| C — agent_only | BioMistral | Qwen2.5 (zero-shot rewrite) | no | 0.945 | 0.923 | **0.05** |
+
+**What this tells us:**
+
+1. **SeqGAN fakes are 5× more evasive than BioMistral fakes** (0.75 vs 0.15) — but the SeqGAN text is also lower-quality, so this is partly a distribution-shift artefact: the detector trained on BioMistral fakes hasn't seen this style. Even with two retrain rounds the evasion never came down.
+2. **Qwen zero-shot rewrites are counterproductive** (Condition C evasion 0.05 vs Condition A 0.15). Untrained Qwen leaks its own stylistic markers when asked to "make it more credible," which the detector picks up easily. **This is the paper narrative for why Condition D matters** — the agent rewriter only earns its keep after adversarial training (LoRA fine-tune on detector misses).
+
+### Known smoke-run issues (must fix before paper run)
+
+- **Per-round metrics are byte-identical** in both B and C. Root cause: `set_seed(42)` is called once at process start, so SeqGAN sampling and Qwen sampling are deterministic across rounds. Fix for paper run: seed-per-round (e.g. `set_seed(42 + round_idx)`) or pass `do_sample=True` with a different `generator` per round. Without this, the round-on-round adversarial dynamic can't show.
+- **`hard_fraction: 0.25` config is unwired.** Condition C rewrote all 40 fakes, not just the top-25% the detector was most confident about. Wire this in `training/adversarial_loop.py` before the 10k run — the paper's claim is that the agent focuses on hard examples.
+- **Condition D not run.** Skipped at user request. Will run at 10k-scale with seed-per-round + hard-fraction fix above.
+
 ---
 
 ## Known issues / open decisions

@@ -1,0 +1,27 @@
+{
+  "condition": "condition_B",
+  "num_rounds": 2,
+  "per_round": [
+    {
+      "round": 1,
+      "auc": 0.9,
+      "f1": 0.6792452830188679,
+      "accuracy": 0.575,
+      "evasion_rate": 0.75
+    },
+    {
+      "round": 2,
+      "auc": 0.9,
+      "f1": 0.6792452830188679,
+      "accuracy": 0.575,
+      "evasion_rate": 0.75
+    }
+  ],
+  "final": {
+    "round": 2,
+    "auc": 0.9,
+    "f1": 0.6792452830188679,
+    "accuracy": 0.575,
+    "evasion_rate": 0.75
+  }
+}

@@ -1,0 +1,127 @@
+# Smoke-test override for conditions B/C/D at 200-scale.
+# Purpose: exercise every code path in training/adversarial_loop.py without committing
+# the ~42h wall-clock that config_novel.yaml's 5-rounds × 1000-fakes would require on M3 Max.
+#
+# Reuses the 200-real + 200-fake splits already at data/processed/{train,val,test}.csv.
+# Generator output dir is pre-seeded with symlinks to zero-shot BioMistral so the loop
+# skips fine-tuning (fine-tune is what the 10k paper run is for).
+#
+# Expected wall-clock on M3 Max bf16:
+#   - Condition B (SeqGAN + detector retrain): ~45 min
+#   - Condition C (BioMistral + Qwen rewrite, no retrain): ~35 min
+#   - Condition D (BioMistral + Qwen rewrite + detector retrain): ~55 min
+#   Total: ~2.5 hours
+
+runtime:
+  device: "mps"
+  dtype: "bfloat16"
+  num_workers: 4
+  pin_memory: false
+  persistent_workers: true
+  seed: 42
+
+paths:
+  project_root: "."
+  data_dir: "data/processed"
+  train_csv: "data/processed/train.csv"
+  val_csv:   "data/processed/val.csv"
+  test_csv:  "data/processed/test.csv"
+  transfer_test_csv: "data/processed/transfer_test.csv"
+  experiments_dir: "experiments"
+  metrics_dir: "experiments/metrics"
+  plots_dir: "experiments/plots"
+  round_data_dir: "experiments/round_data"
+  checkpoints_dir: "experiments/checkpoints"
+
+data:
+  source: "pubmed"
+  max_real_samples: 200
+  min_words: 40
+  val_ratio: 0.1
+  test_ratio: 0.1
+  med_mmhl_fakes_path: null
+  initial_fake_max_new_tokens: 256
+  initial_fake_temperature: 0.9
+
+generator:
+  model_name: "BioMistral/BioMistral-7B"
+  dtype: "bfloat16"
+  attn_implementation: "eager"
+  gradient_checkpointing: true
+  per_device_batch_size: 1
+  grad_accum_steps: 16
+  epochs: 1              # smoke: would be 3 in paper run
+  lr: 2.0e-5
+  max_length: 256        # smoke: halved from 384 to speed up sampling
+  offload_when_idle: true
+  output_dir: "experiments/checkpoints/generator"
+  prompt_template: |
+    Write a convincing but fictitious biomedical research abstract about {topic}.
+    Follow standard scientific writing conventions with Background, Methods, Results, and Conclusion.
+    Abstract:
+
+detector:
+  model_name: "microsoft/BiomedNLP-BiomedBERT-large-uncased-abstract"
+  dtype: "bfloat16"
+  batch_size: 16
+  max_length: 512
+  epochs: 2              # smoke: cut from 3 → 2; detector converged by epoch 2 in condition A
+  lr: 2.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  output_dir: "experiments/checkpoints/detector"
+
+agent:
+  model_name: "Qwen/Qwen2.5-7B-Instruct"
+  dtype: "bfloat16"
+  attn_implementation: "eager"
+  max_new_tokens: 256    # smoke: halved from 384
+  temperature: 0.8
+  top_p: 0.95
+  lora:
+    r: 16
+    alpha: 32
+    dropout: 0.05
+    target_modules: ["q_proj", "v_proj", "k_proj", "o_proj"]
+  rewrite_prompt: |
+    <|im_start|>user
+    Rewrite the following medical abstract to sound more credible and harder to detect as AI-generated. Preserve all core claims. Output only the rewritten abstract.
+
+    Original: {fake_abstract}<|im_end|>
+    <|im_start|>assistant
+  output_dir: "experiments/checkpoints/agent"
+
+seqgan:
+  vocab_size: 5000
+  embedding_dim: 128
+  hidden_dim: 256
+  seq_length: 128
+  batch_size: 32
+  pretrain_epochs: 3     # smoke: cut from 10 → 3
+  adv_epochs: 5          # smoke: cut from 30 → 5
+  output_dir: "experiments/checkpoints/seqgan"
+
+transfer_attacker:
+  model_name: "meta-llama/Llama-3.2-3B-Instruct"
+  dtype: "bfloat16"
+  attn_implementation: "eager"
+  n_fakes: 500
+  max_new_tokens: 384
+  temperature: 0.8
+  top_p: 0.95
+
+loop:
+  num_rounds: 2          # smoke: cut from 5 → 2 (proves round-on-round evasion trend exists)
+  fake_pool_size: 40     # smoke: cut from 1000 → 40 (matches the 40-row test split)
+  hard_fraction: 0.25
+  clear_vram_between_steps: true
+
+metrics:
+  compute_bertscore: false  # smoke: skip BERTScore to avoid loading another model
+  compute_perplexity: false # smoke: skip; can be computed post-hoc from per-round fakes
+  bertscore_model: "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
+
+logging:
+  level: "INFO"
+  log_to_file: true
+  log_path: "experiments/run.log"

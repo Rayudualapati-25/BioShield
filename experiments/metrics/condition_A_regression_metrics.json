@@ -1,0 +1,18 @@
+{
+  "mode": "baseline",
+  "label": "condition_A_regression",
+  "model_name": "sshleifer/tiny-distilbert-base-uncased-finetuned-sst-2-english",
+  "device": "mps",
+  "dtype": "float32",
+  "epochs": 1,
+  "best_epoch": 1,
+  "best_val_auc": 0.5,
+  "test": {
+    "loss": 0.6931466554340563,
+    "auc": 0.5,
+    "f1": 0.6896551724137931,
+    "accuracy": 0.5263157894736842,
+    "n": 38
+  },
+  "elapsed_seconds": 48.27589416503906
+}

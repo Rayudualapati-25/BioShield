@@ -1,0 +1,8 @@
+{
+  "label": "condition_A_regression",
+  "split": "test",
+  "auc": 0.5,
+  "f1": 0.6896551724137931,
+  "accuracy": 0.5263157894736842,
+  "evasion_rate": 1.0
+}

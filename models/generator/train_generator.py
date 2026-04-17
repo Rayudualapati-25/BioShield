@@ -1,11 +1,15 @@
-"""BioMedLM (or any HF causal LM) fine-tuner + fake-pool generator.
+"""Biomedical causal-LM fine-tuner + fake-pool generator (BioMistral-7B by default).
 
-PRD §3.1:
+PRD §3.1 (Apple Silicon edition):
 - AutoModelForCausalLM in bf16 on MPS
+- attn_implementation="eager"  (flash-attn is CUDA-only)
 - gradient_checkpointing=true on HF model
-- per-device batch 2, grad_accum 8  → effective batch 16
+- per-device batch 1, grad_accum 16  → effective batch 16 (BioMistral-7B on 64GB)
 - 3 epochs, lr 2e-5
 - exposes `generate_fake_pool(n, prompt_template)` for the adversarial loop
+
+Architecture-agnostic: works with any HF causal LM (BioMedLM/BioMistral/BioGPT/...),
+controlled via cfg["generator"]["model_name"].
 
 CLI:
     python models/generator/train_generator.py --config configs/config_novel.yaml
@@ -89,12 +93,19 @@ def load_causal_lm(cfg: dict, device: torch.device):
 
     name = cfg["generator"]["model_name"]
     dtype = resolve_dtype(cfg["generator"].get("dtype", "bfloat16"))
-    LOG.info("Loading generator %s dtype=%s on %s", name, dtype, device)
+    attn_impl = cfg["generator"].get("attn_implementation", "eager")
+    LOG.info("Loading generator %s dtype=%s attn=%s on %s", name, dtype, attn_impl, device)
     tokenizer = AutoTokenizer.from_pretrained(name)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+    # use_safetensors=False: BioMistral-7B ships only pytorch_model.bin. Transformers'
+    # auto-convert to safetensors sometimes raises for offline/unauthenticated loads.
     model = AutoModelForCausalLM.from_pretrained(
-        name, torch_dtype=dtype, low_cpu_mem_usage=True,
+        name,
+        torch_dtype=dtype,
+        low_cpu_mem_usage=True,
+        attn_implementation=attn_impl,
+        use_safetensors=False,
     )
     if bool(cfg["generator"].get("gradient_checkpointing", True)):
         model.gradient_checkpointing_enable()
@@ -166,11 +177,18 @@ def generate_fake_pool(
     gcfg = cfg["generator"]
     source = str(checkpoint) if checkpoint else gcfg["model_name"]
     dtype = resolve_dtype(gcfg.get("dtype", "bfloat16"))
-    LOG.info("Loading generator for sampling: %s (dtype=%s)", source, dtype)
+    attn_impl = gcfg.get("attn_implementation", "eager")
+    LOG.info("Loading generator for sampling: %s (dtype=%s, attn=%s)", source, dtype, attn_impl)
     tokenizer = AutoTokenizer.from_pretrained(source)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
-    model = AutoModelForCausalLM.from_pretrained(source, torch_dtype=dtype).to(device)
+    model = AutoModelForCausalLM.from_pretrained(
+        source,
+        torch_dtype=dtype,
+        attn_implementation=attn_impl,
+        use_safetensors=False,
+        low_cpu_mem_usage=True,
+    ).to(device)
     model.eval()
 
     prompts: list[str] = []

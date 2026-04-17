@@ -1,10 +1,14 @@
-"""Adversarial rewrite agent — Phi-3.5-mini-instruct + LoRA on MPS (bf16).
+"""Adversarial rewrite agent — instruction-tuned LM + LoRA on MPS (bf16).
 
-PRD §3.2:
-- Load Phi-3.5-mini-instruct in bf16 (no 4-bit NF4 quantization; the usual CUDA-only quantizer is out).
-- LoRA target modules: q_proj, v_proj, k_proj, o_proj.
+PRD §3.2 (Apple Silicon edition):
+- Load an instruction-tuned LM in bf16 (no 4-bit NF4 quantization; the usual CUDA-only quantizer is out).
+- LoRA target modules: q_proj, v_proj, k_proj, o_proj  (standard Llama/Qwen/Phi attention naming).
 - attn_implementation="eager" (FlashAttention 2 is CUDA-only).
-- Rewrite prompt uses the Phi-3.5 chat template.
+- Rewrite prompt uses the model-specific chat template from cfg.agent.rewrite_prompt.
+
+Architecture-agnostic: driven by cfg["agent"]["model_name"]. Default production choice
+is Qwen/Qwen2.5-7B-Instruct (stronger instruction following than Phi-3.5-mini at
+comparable memory on M3 Max 64GB). Works equally for Phi-3.5, Llama-3.2-Instruct, etc.
 
 This module exposes `AdversarialAgent` with .rewrite(texts: list[str]) -> list[str]
 for the adversarial loop. If `peft` is unavailable, rewrites still work but

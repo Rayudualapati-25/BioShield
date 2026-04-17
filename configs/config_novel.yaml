@@ -24,31 +24,38 @@ paths:
   checkpoints_dir: "experiments/checkpoints"
 
 data:
-  source: "pubmed"           # "pubmed" = stream HuggingFace; "synthetic" = tiny fixture for dry runs
+  source: "pubmed"              # "pubmed"=stream real + BioMistral-generated fakes; "synthetic"=tiny fixture
   max_real_samples: 10000
   min_words: 40
   val_ratio: 0.1
   test_ratio: 0.1
-  med_mmhl_fakes_path: null  # fill in when you have Med-MMHL locally
+  med_mmhl_fakes_path: null     # Not used — initial fakes come from BioMistral (cfg.generator.model_name)
+  initial_fake_max_new_tokens: 256   # token budget per initial fake abstract (zero-shot BioMistral)
+  initial_fake_temperature: 0.9
 
 generator:
-  model_name: "stanford-crfm/BioMedLM"
+  # Upgraded from BioMedLM (2.7B GPT-2, 2022) → BioMistral-7B (Mistral arch, 2024).
+  # Rationale: Mistral architecture is modern, BioMistral is continued-pretrained on PubMed
+  # Central, and the HF model card reports strong biomedical generation quality.
+  model_name: "BioMistral/BioMistral-7B"
   dtype: "bfloat16"
+  attn_implementation: "eager"     # flash-attn is CUDA-only
   gradient_checkpointing: true
-  per_device_batch_size: 2
-  grad_accum_steps: 8         # effective batch = 16
+  per_device_batch_size: 1         # 7B on 64GB MPS with grad-accum 16 → effective batch 16
+  grad_accum_steps: 16
   epochs: 3
   lr: 2.0e-5
   max_length: 384
   offload_when_idle: true
   output_dir: "experiments/checkpoints/generator"
   prompt_template: |
-    Write a convincing but fictitious biomedical abstract about {topic}.
-    Follow standard scientific writing conventions with methods, results, and conclusion.
+    Write a convincing but fictitious biomedical research abstract about {topic}.
+    Follow standard scientific writing conventions with Background, Methods, Results, and Conclusion.
     Abstract:
 
 detector:
-  model_name: "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
+  # Upgraded from PubMedBERT-base (110M) → BiomedBERT-large (340M) for stronger encoder capacity.
+  model_name: "microsoft/BiomedNLP-BiomedBERT-large-uncased-abstract"
   dtype: "bfloat16"
   batch_size: 16
   max_length: 512
@@ -59,7 +66,10 @@ detector:
   output_dir: "experiments/checkpoints/detector"
 
 agent:
-  model_name: "microsoft/Phi-3.5-mini-instruct"
+  # Upgraded from Phi-3.5-mini (3.8B) → Qwen2.5-7B-Instruct for stronger instruction following
+  # and paraphrasing. Same LoRA target modules (q_proj/k_proj/v_proj/o_proj) — Qwen uses the
+  # standard Llama-style attention naming, so the modules transfer 1:1 from Phi-3.5.
+  model_name: "Qwen/Qwen2.5-7B-Instruct"
   dtype: "bfloat16"
   attn_implementation: "eager"     # flash-attn is CUDA-only
   max_new_tokens: 384
@@ -71,12 +81,11 @@ agent:
     dropout: 0.05
     target_modules: ["q_proj", "v_proj", "k_proj", "o_proj"]
   rewrite_prompt: |
-    <|user|>
+    <|im_start|>user
     Rewrite the following medical abstract to sound more credible and harder to detect as AI-generated. Preserve all core claims. Output only the rewritten abstract.
 
-    Original: {fake_abstract}
-    <|end|>
-    <|assistant|>
+    Original: {fake_abstract}<|im_end|>
+    <|im_start|>assistant
   output_dir: "experiments/checkpoints/agent"
 
 seqgan:

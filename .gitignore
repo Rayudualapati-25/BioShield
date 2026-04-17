@@ -1,6 +1,8 @@
 # Python cache
 __pycache__/
 *.py[cod]
+*.egg-info/
+.pytest_cache/
 
 # macOS
 .DS_Store
@@ -10,6 +12,19 @@ __pycache__/
 venv/
 env/
 
-# Local experiment outputs (keep tracked artifacts if desired)
-# experiments/checkpoints/
-# experiments/plots/
+# Large / local experiment outputs — checkpoints and round data are too big for git.
+# Metrics JSON + plots ARE tracked (they're tiny and belong in the paper artifact set).
+experiments/checkpoints/
+experiments/round_data/
+experiments/*.log
+
+# Weight / checkpoint blobs anywhere in the tree
+*.safetensors
+*.bin
+*.pt
+*.pth
+
+# IDE
+.idea/
+.vscode/
+*.swp

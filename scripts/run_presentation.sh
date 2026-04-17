@@ -26,10 +26,12 @@ export TOKENIZERS_PARALLELISM=false
 export PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0    # no recommended-memory cap; use all we can
 export OMP_NUM_THREADS=10                       # M3 Max has 12 cores; leave 2 for OS + python
 export MKL_NUM_THREADS=10
-# Keep HF offline so transformers doesn't hit the safetensors PR-check endpoint
-# mid-training. Data prep already ran; no dataset fetch needed from here on.
-export HF_HUB_OFFLINE=1
-export TRANSFORMERS_OFFLINE=1
+# NOTE: HF_HUB_OFFLINE / TRANSFORMERS_OFFLINE are set only around training stages
+# (via the `go_offline` / `go_online` helpers below). Data prep and benchmarks
+# need the hub reachable to stream datasets.
+go_offline() { export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1; }
+go_online()  { unset HF_HUB_OFFLINE TRANSFORMERS_OFFLINE; }
+go_online
 
 # --- Keep Mac awake, process nice'd up ---
 # -d: display on, -i: system idle disabled, -m: disk idle disabled, -s: system sleep disabled
@@ -77,35 +79,34 @@ notify "PIPELINE_BEGIN | presentation-run, config=$CONFIG"
 notify "INFO  | caffeinate PID=$CAFF_PID (prevents sleep for lifetime of this script)"
 
 # --- 1. Data prep: stream 500 real PubMed + generate 500 BioMistral fakes ---
-# If data/processed/{train,val,test}.csv already exist at the right scale, this
-# is a no-op. data/prepare_data.py checks the target row count.
+# Needs HF hub reachable to stream PubMed abstracts. load_generator_fakes()
+# flips HF_HUB_OFFLINE internally for the BioMistral load, so global online is fine.
+go_online
 run_stage "data_prep_500" \
   $PY data/prepare_data.py --config "$CONFIG" --max_real 500 --fakes-source generator \
   || notify "WARN  | data_prep hit an error. Attempting to continue — CSVs may already exist."
 
-# --- 2. Condition A: static baseline detector ---
+# --- 2-5. Training stages: offline-safe (models already in HF cache). ---
+go_offline
+
 run_stage "condition_A" \
   $PY training/adversarial_loop.py --config "$CONFIG" --condition static_baseline
 
-# --- 3. Condition B: SeqGAN + detector retrain ---
 run_stage "condition_B" \
   $PY training/adversarial_loop.py --config "$CONFIG" --condition seqgan_only
 
-# --- 4. Condition C: Qwen zero-shot rewrite, no retrain ---
 run_stage "condition_C" \
   $PY training/adversarial_loop.py --config "$CONFIG" --condition agent_only
 
-# --- 5. Condition D: full pipeline (Qwen rewrite + detector retrain) ---
 run_stage "condition_D" \
   $PY training/adversarial_loop.py --config "$CONFIG" --condition full_pipeline
 
-# --- 6. Plots ---
+# --- 6. Plots (local only, offline fine) ---
 run_stage "plots" \
   $PY evaluation/visualization.py --config "$CONFIG" --all_conditions
 
-# --- 7. RAID + M4 cross-benchmarks (defensive; skipped if datasets unavailable) ---
-# Only run if we have network (datasets streaming needs HF Hub reachability).
-unset HF_HUB_OFFLINE TRANSFORMERS_OFFLINE
+# --- 7. RAID + M4 cross-benchmarks: needs network to stream datasets ---
+go_online
 run_stage "bench_raid" \
   $PY scripts/raid_benchmark.py --config "$CONFIG" --benchmark raid --n_samples 200 \
   || notify "INFO  | RAID bench skipped (network or schema issue)"

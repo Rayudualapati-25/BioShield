@@ -138,6 +138,35 @@ def _score_detector_on(cfg: dict, detector_ckpt: Path, test_csv: Path, device) -
     }
 
 
+def _score_texts(cfg: dict, detector_ckpt: Path, texts: list[str], device) -> list[float]:
+    """Score a batch of texts with the detector at detector_ckpt. Returns list of p(real)."""
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+    from utils.device import resolve_dtype
+
+    dtype = resolve_dtype(cfg["detector"].get("dtype", "bfloat16"))
+    max_length = int(cfg["detector"]["max_length"])
+    batch_size = int(cfg["detector"]["batch_size"])
+
+    tokenizer = AutoTokenizer.from_pretrained(detector_ckpt)
+    model = AutoModelForSequenceClassification.from_pretrained(
+        detector_ckpt, num_labels=2, torch_dtype=dtype
+    ).to(device).eval()
+
+    probs: list[float] = []
+    with torch.inference_mode():
+        for i in range(0, len(texts), batch_size):
+            chunk = texts[i : i + batch_size]
+            enc = tokenizer(
+                chunk, return_tensors="pt", truncation=True, max_length=max_length, padding=True
+            ).to(device)
+            logits = model(**enc).logits.float().cpu()
+            p = torch.softmax(logits, dim=-1)[:, 1].numpy().tolist()
+            probs.extend(p)
+    del model
+    empty_cache(device)
+    return probs
+
+
 def _build_round_test_set(cfg: dict, round_idx: int, fakes_csv: Path, test_csv_out: Path) -> None:
     """Build a balanced round-specific test set: all new fakes + equal real samples from cfg.test_csv."""
     real = pd.read_csv(cfg["paths"]["test_csv"])
@@ -160,6 +189,7 @@ def run_loop(condition: str, cfg: dict, config_path: str) -> dict:
 
     num_rounds = int(cfg["loop"]["num_rounds"])
     pool_size = int(cfg["loop"]["fake_pool_size"])
+    base_seed = int(cfg["runtime"].get("seed", 42))
     round_root = Path(cfg["paths"]["round_data_dir"]) / label
     round_root.mkdir(parents=True, exist_ok=True)
 
@@ -173,7 +203,11 @@ def run_loop(condition: str, cfg: dict, config_path: str) -> dict:
 
     per_round_metrics: list[dict] = []
     for r in range(1, num_rounds + 1):
-        LOG.info("--- ROUND %d / %d (%s) ---", r, num_rounds, label)
+        # Re-seed per round so generator/agent sampling differs across rounds.
+        # Without this, all rounds produce byte-identical fakes and per-round
+        # metrics become degenerate. See OVERNIGHT_SUMMARY.md "Known issues".
+        set_seed(base_seed + r)
+        LOG.info("--- ROUND %d / %d (%s) [seed=%d] ---", r, num_rounds, label, base_seed + r)
         round_dir = round_root / f"round_{r}"
         round_dir.mkdir(parents=True, exist_ok=True)
         fakes_csv = round_dir / "fakes.csv"
@@ -201,16 +235,54 @@ def run_loop(condition: str, cfg: dict, config_path: str) -> dict:
                 "--out", str(fakes_csv),
             ])
 
-            # 2. Optional Phi-3.5 rewrites (full_pipeline + agent_only; skipped for seqgan_only)
+            # 2. Optional Qwen rewrites (full_pipeline + agent_only; skipped for seqgan_only)
+            # Rewrites focus on "hard" fakes — those the detector caught most confidently
+            # (low prob_real). The agent's job is to close that gap. hard_fraction < 1.0
+            # means only the hardest N% are rewritten; the rest pass through untouched.
             if condition in ("full_pipeline", "agent_only"):
-                rewritten = round_dir / "fakes_rewritten.csv"
-                _run([
-                    sys.executable, "agents/adversarial_agent.py",
-                    "--config", config_path,
-                    "--input_csv", str(fakes_csv),
-                    "--output_csv", str(rewritten),
-                ])
-                fakes_csv = rewritten
+                hard_fraction = float(cfg["loop"].get("hard_fraction", 1.0))
+                if 0.0 < hard_fraction < 1.0:
+                    fakes_df = pd.read_csv(fakes_csv)
+                    if "label" not in fakes_df.columns:
+                        fakes_df["label"] = 0
+                    # Score all fakes with the current detector to rank by hardness.
+                    probs = _score_texts(cfg, current_ckpt, fakes_df["text"].astype(str).tolist(), device)
+                    fakes_df["prob_real"] = probs
+                    # "Hard for the generator" = detector confidently called it fake = low prob_real.
+                    fakes_df = fakes_df.sort_values("prob_real", ascending=True).reset_index(drop=True)
+                    n_hard = max(1, int(round(hard_fraction * len(fakes_df))))
+                    hard_df = fakes_df.iloc[:n_hard]
+                    easy_df = fakes_df.iloc[n_hard:]
+                    hard_input = round_dir / "fakes_hard_input.csv"
+                    hard_df[["text", "label"]].to_csv(hard_input, index=False)
+                    rewritten_hard = round_dir / "fakes_hard_rewritten.csv"
+                    _run([
+                        sys.executable, "agents/adversarial_agent.py",
+                        "--config", config_path,
+                        "--input_csv", str(hard_input),
+                        "--output_csv", str(rewritten_hard),
+                    ])
+                    # Merge rewritten-hard + untouched-easy into the round's fake pool.
+                    rew_df = pd.read_csv(rewritten_hard)[["text"]].assign(label=0)
+                    merged = pd.concat(
+                        [rew_df, easy_df[["text"]].assign(label=0)], ignore_index=True
+                    )
+                    merged_csv = round_dir / "fakes_merged.csv"
+                    merged.to_csv(merged_csv, index=False)
+                    LOG.info(
+                        "hard_fraction=%.2f -> rewrote %d/%d fakes (easy %d passed through)",
+                        hard_fraction, len(rew_df), len(fakes_df), len(easy_df),
+                    )
+                    fakes_csv = merged_csv
+                else:
+                    rewritten = round_dir / "fakes_rewritten.csv"
+                    _run([
+                        sys.executable, "agents/adversarial_agent.py",
+                        "--config", config_path,
+                        "--input_csv", str(fakes_csv),
+                        "--output_csv", str(rewritten),
+                    ])
+                    fakes_csv = rewritten
 
         # 3. Build this round's test set and evaluate the current detector on it.
         round_test = round_dir / "test.csv"

@@ -99,6 +99,19 @@ python scripts/raid_benchmark.py --config configs/config_novel.yaml --benchmark 
 - `experiments/plots/*.png` — ROC, evasion-rate, adversarial-rounds plots
 - `experiments/memory_check.log` — MPS smoke-test record
 
+### Dev-scale smoke-test results (200-sample run — NOT paper numbers)
+
+| Metric | Value | CI at n=40 test | Notes |
+|---|---|---|---|
+| Test AUC | **0.9775** | ±0.08 | Validation tracked stably (0.965 → 0.988) |
+| Test F1 | **0.9048** | ±0.08 | |
+| Test accuracy | **0.9000** | ±0.08 | |
+| Evasion rate | **0.15** | ±0.08 | 3/20 BioMistral fakes slipped past the detector |
+| Train wall-clock | **176 s** | — | 3 epochs × 320 rows × batch 16 on M3 Max bf16 |
+| Data prep wall-clock | **~37 min** | — | 200 BioMistral zero-shot fakes, ~10s/fake |
+
+**Honest read:** these numbers are great *for the smoke test* but statistically noisy at n=40 (CI ±8%). The real paper numbers need 10k-scale data. The purpose of this run was to **prove the pipeline works end-to-end under the new stack** — which it does.
+
 ---
 
 ## Known issues / open decisions

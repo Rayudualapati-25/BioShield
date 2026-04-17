@@ -5,14 +5,14 @@
   "device": "mps",
   "dtype": "bfloat16",
   "epochs": 2,
-  "best_epoch": 1,
-  "best_val_auc": 0.9650000000000001,
+  "best_epoch": 2,
+  "best_val_auc": 0.9992,
   "test": {
-    "loss": 0.5002985596656799,
-    "auc": 0.9325,
-    "f1": 0.8181818181818182,
-    "accuracy": 0.8,
-    "n": 40
+    "loss": 0.16742263585329056,
+    "auc": 0.9894000000000001,
+    "f1": 0.9375,
+    "accuracy": 0.94,
+    "n": 100
   },
-  "elapsed_seconds": 119.15472269058228
+  "elapsed_seconds": 270.87575602531433
 }

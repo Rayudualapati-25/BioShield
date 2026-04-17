@@ -1,0 +1,20 @@
+{
+  "label": "condition_D_raid",
+  "benchmark": "raid",
+  "checkpoint": "experiments/checkpoints/detector/condition_A",
+  "device": "mps",
+  "device_desc": "device=mps allocated=0.00GB reserved=2.37GB",
+  "dtype": "bfloat16",
+  "biomedical_only": true,
+  "n_samples": 200,
+  "metrics": {
+    "auc": 0.8605699331200931,
+    "f1": 0.1792452830188679,
+    "accuracy": 0.13,
+    "evasion_rate": 0.9613259668508287,
+    "n": 200,
+    "n_real": 19,
+    "n_fake": 181
+  },
+  "elapsed_seconds": 21.3
+}

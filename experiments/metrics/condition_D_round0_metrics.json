@@ -1,6 +1,6 @@
 {
   "mode": "baseline",
-  "label": "condition_A",
+  "label": "condition_D_round0",
   "model_name": "microsoft/BiomedNLP-BiomedBERT-large-uncased-abstract",
   "device": "mps",
   "dtype": "bfloat16",
@@ -14,5 +14,5 @@
     "accuracy": 0.94,
     "n": 100
   },
-  "elapsed_seconds": 286.86539602279663
+  "elapsed_seconds": 282.4916808605194
 }

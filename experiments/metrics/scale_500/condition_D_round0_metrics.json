@@ -1,0 +1,18 @@
+{
+  "mode": "baseline",
+  "label": "condition_D_round0",
+  "model_name": "microsoft/BiomedNLP-BiomedBERT-large-uncased-abstract",
+  "device": "mps",
+  "dtype": "bfloat16",
+  "epochs": 2,
+  "best_epoch": 2,
+  "best_val_auc": 0.9992,
+  "test": {
+    "loss": 0.16742263585329056,
+    "auc": 0.9894000000000001,
+    "f1": 0.9375,
+    "accuracy": 0.94,
+    "n": 100
+  },
+  "elapsed_seconds": 282.4916808605194
+}

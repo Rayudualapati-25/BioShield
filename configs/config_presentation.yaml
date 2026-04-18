@@ -34,7 +34,9 @@ paths:
 
 data:
   source: "pubmed"
-  max_real_samples: 500
+  # 1500 real + 1500 fake = 3000 total samples. Scaled up from 500 for tighter CIs.
+  # At 1000 samples the 500-scale run took ~7h. Linear extrapolation: ~21h wall-clock.
+  max_real_samples: 1500
   min_words: 40
   val_ratio: 0.1
   test_ratio: 0.1

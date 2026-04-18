@@ -8,13 +8,13 @@
   "biomedical_only": true,
   "n_samples": 200,
   "metrics": {
-    "auc": 0.8605699331200931,
-    "f1": 0.1792452830188679,
-    "accuracy": 0.13,
-    "evasion_rate": 0.9613259668508287,
+    "auc": 0.8170979936027916,
+    "f1": 0.17592592592592593,
+    "accuracy": 0.11,
+    "evasion_rate": 0.9834254143646409,
     "n": 200,
     "n_real": 19,
     "n_fake": 181
   },
-  "elapsed_seconds": 21.3
+  "elapsed_seconds": 20.4
 }

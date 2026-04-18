@@ -433,7 +433,7 @@ def slide_data(prs):
     # hero numeral
     add_text(
         s, Inches(0.6), Inches(2.3), Inches(6.5), Inches(3.2),
-        "1,000",
+        "3,000",
         font=SERIF, size=180, color=INK, italic=True, line_spacing=1.0,
     )
     add_text(
@@ -450,10 +450,10 @@ def slide_data(prs):
     )
     hairline(s, rx, Inches(2.85), Inches(4.8), color=CORAL)
     breakdown = [
-        ("500", "real PubMed abstracts, streamed from ccdv/pubmed-summarization"),
-        ("500", "fake abstracts, generated zero-shot by BioMistral-7B"),
+        ("1,500", "real PubMed abstracts, streamed from ccdv/pubmed-summarization"),
+        ("1,500", "fake abstracts, generated zero-shot by BioMistral-7B"),
         ("80 / 10 / 10", "train / val / test split, stratified by label"),
-        ("n = 100", "held-out test set, same distribution as training"),
+        ("n = 300", "held-out test set, ±2.9% CI on AUC"),
     ]
     for i, (num, desc) in enumerate(breakdown):
         y = Inches(3.1) + Inches(0.85) * i
@@ -539,12 +539,12 @@ def slide_result_auc(prs):
     # hero numeral
     add_text(
         s, Inches(0.6), Inches(2.6), Inches(9), Inches(3.2),
-        "0.989",
-        font=SERIF, size=220, color=INK, italic=True, line_spacing=1.0,
+        "0.9997",
+        font=SERIF, size=200, color=INK, italic=True, line_spacing=1.0,
     )
     add_text(
         s, Inches(0.6), Inches(5.95), Inches(9), Inches(0.45),
-        "Test-set AUC  ·  Condition A  ·  n = 100",
+        "Test-set AUC  ·  Condition A  ·  n = 300",
         font=SANS, size=14, color=SOFT_INK,
     )
     # right: supporting numbers
@@ -552,7 +552,7 @@ def slide_result_auc(prs):
     add_text(s, rx, Inches(2.7), Inches(3.4), Inches(0.3), "ALSO WORTH NOTING",
              font=SANS, size=10, color=CORAL, bold=True)
     hairline(s, rx, Inches(3.05), Inches(3.4), color=CORAL)
-    mini = [("F1", "0.938"), ("Accuracy", "0.94"), ("Train samples", "800"), ("Epochs", "2")]
+    mini = [("F1", "0.9797"), ("Accuracy", "0.98"), ("Train samples", "2,400"), ("Epochs", "2")]
     for i, (k, v) in enumerate(mini):
         y = Inches(3.25) + Inches(0.75) * i
         add_text(s, rx, y, Inches(1.8), Inches(0.4), k, font=SANS, size=11, color=MUTED)
@@ -560,7 +560,7 @@ def slide_result_auc(prs):
                  font=SERIF, size=22, color=INK, italic=True, align=PP_ALIGN.RIGHT)
 
 
-# ─── slide 10: result 2 — evasion curve ───────────────────────────────────────
+# ─── slide 10: result 2 — generator-family dependence ────────────────────────
 def slide_result_evasion(prs, evasion_plot: Path | None):
     s = new_slide(prs, CREAM)
     page_chrome(s, 10)
@@ -571,49 +571,51 @@ def slide_result_evasion(prs, evasion_plot: Path | None):
     )
     add_text(
         s, Inches(0.6), Inches(1.45), Inches(12), Inches(0.7),
-        "The detector is learning.",
-        font=SERIF, size=34, color=INK, italic=True,
+        "The story is generator family — not rounds.",
+        font=SERIF, size=32, color=INK, italic=True,
     )
     add_text(
         s, Inches(0.6), Inches(2.25), Inches(12), Inches(0.45),
-        "Condition B  ·  evasion rate on the SeqGAN fake pool, round over round.",
+        "Evasion rate, final round, by generator family. Same detector, same test set, 100× spread.",
         font=SANS, size=13, color=MUTED,
     )
 
-    # three hero numbers with arrows
-    numbers = [("0.74", "ROUND 1"), ("0.64", "ROUND 2"), ("0.54", "ROUND 3")]
+    # three hero numbers: SeqGAN / BioMistral / RAID cross-domain
+    numbers = [
+        ("99%",  "SEQGAN",      "Condition B final round",                 CORAL),
+        ("0.7%", "BIOMISTRAL",  "Conditions C + D final round",             FOREST),
+        ("98%",  "RAID",        "cross-domain · mixed LLMs · n = 200",      MUTED),
+    ]
     nx0 = Inches(0.7)
-    nbox_w = Inches(3.5)
-    for i, (num, label) in enumerate(numbers):
-        x = nx0 + (nbox_w + Inches(0.3)) * i
+    nbox_w = Inches(4.0)
+    for i, (num, label, sub, color) in enumerate(numbers):
+        x = nx0 + (nbox_w + Inches(0.1)) * i
         add_text(
-            s, x, Inches(3.1), nbox_w, Inches(1.6),
+            s, x, Inches(3.0), nbox_w, Inches(1.5),
             num,
-            font=SERIF, size=86, color=(CORAL if i == 0 else (MUTED if i == 1 else FOREST)),
+            font=SERIF, size=86, color=color,
             italic=True, align=PP_ALIGN.CENTER,
         )
         add_text(
-            s, x, Inches(4.75), nbox_w, Inches(0.4),
+            s, x, Inches(4.65), nbox_w, Inches(0.4),
             label,
-            font=SANS, size=11, color=MUTED, align=PP_ALIGN.CENTER, bold=True,
+            font=SANS, size=12, color=INK, align=PP_ALIGN.CENTER, bold=True,
         )
-        # arrow
-        if i < 2:
-            ax = x + nbox_w + Inches(0.02)
-            ay = Inches(3.9)
-            conn = s.shapes.add_connector(1, ax, ay, ax + Inches(0.25), ay)
-            conn.line.color.rgb = MUTED
-            conn.line.width = Pt(1.25)
+        add_text(
+            s, x, Inches(5.05), nbox_w, Inches(0.4),
+            sub,
+            font=SANS, size=10, color=MUTED, align=PP_ALIGN.CENTER,
+        )
 
     # interpretation block
-    add_rect(s, Inches(0.6), Inches(5.6), Inches(12.1), Inches(1.3),
+    add_rect(s, Inches(0.6), Inches(5.75), Inches(12.1), Inches(1.25),
              fill=CORAL_SOFT)
     add_text(
-        s, Inches(0.85), Inches(5.75), Inches(11.5), Inches(1.2),
-        "That's a 27% relative reduction in three rounds. The detector is seeing fakes\n"
-        "it previously missed, retraining on them, and getting harder to fool. This is\n"
-        "the adversarial-training story in one graph.",
-        font=SERIF, size=15, color=INK, italic=True, line_spacing=1.35,
+        s, Inches(0.85), Inches(5.88), Inches(11.5), Inches(1.15),
+        "Same detector, three families. 99% vs 0.7% evasion — the family matters more than\n"
+        "any round of retraining. A published detector has to disclose which generator family\n"
+        "it was trained against. That's the real headline here.",
+        font=SERIF, size=14, color=INK, italic=True, line_spacing=1.35,
     )
 
 
@@ -639,8 +641,8 @@ def slide_result_honest(prs):
     # two side-by-side plain rows
     y = Inches(3.4)
     rows = [
-        ("Condition C", "agent_only", "AUC 0.982  ·  F1 0.947  ·  Evasion 0.00"),
-        ("Condition D", "full_pipeline", "AUC 0.982  ·  F1 0.947  ·  Evasion 0.00"),
+        ("Condition C", "agent_only", "AUC 0.9993  ·  F1 0.9797  ·  Evasion 0.007"),
+        ("Condition D", "full_pipeline", "AUC 0.9993  ·  F1 0.9797  ·  Evasion 0.007"),
     ]
     for i, (label, code, vals) in enumerate(rows):
         ry = y + Inches(0.7) * i
@@ -686,7 +688,7 @@ def slide_result_scope(prs):
     )
     add_text(
         s, Inches(0.6), Inches(2.6), Inches(7.5), Inches(3.5),
-        "96%",
+        "98%",
         font=SERIF, size=220, color=CORAL, italic=True, line_spacing=1.0,
     )
     add_text(
@@ -726,7 +728,7 @@ def slide_bugs(prs):
     )
     add_text(
         s, Inches(0.6), Inches(2.35), Inches(12), Inches(0.4),
-        "Both caught during an earlier smoke run. Both verified fixed on the 500-scale run.",
+        "Both caught during the smoke run. Both verified fixed at 3,000-sample scale.",
         font=SANS, size=13, color=MUTED,
     )
 
@@ -768,7 +770,7 @@ def slide_runtime(prs):
     )
     add_text(
         s, Inches(0.6), Inches(1.45), Inches(12), Inches(0.7),
-        "Six hours and twenty-three minutes.",
+        "Ten hours and one minute.",
         font=SERIF, size=34, color=INK, italic=True,
     )
     add_text(
@@ -813,7 +815,7 @@ def slide_runtime(prs):
     facts = [
         ("M3 Max 64 GB", "single-machine, lid closed via caffeinate"),
         ("bf16 on MPS",  "no fp16 underflow, no cluster needed"),
-        ("3,984 samples produced", "across real, BioMistral, SeqGAN, RAID"),
+        ("5,622 samples produced", "across real, BioMistral, SeqGAN, + 200 RAID eval"),
     ]
     for i, (k, v) in enumerate(facts):
         yi = Inches(4.65) + Inches(0.75) * i
@@ -845,9 +847,9 @@ def slide_paper(prs):
 
     # three-column comparison table
     cols = [
-        ("NOW",        "Class presentation",   "1,000 samples",  "n = 100",     "6 h 23 m",  "±5.0% CI", MUTED),
-        ("TIER 1",     "Pilot — peer-review defensible", "4,000 samples",  "n = 200",     "~24 h",     "±3.5% CI", INK),
-        ("TIER 2",     "Full — reviewer-proof", "20,000 samples", "n = 1,000",   "~80 h",     "±1.5% CI", CORAL),
+        ("NOW",        "Class presentation",   "3,000 samples",  "n = 300",     "10 h 01 m", "±2.9% CI", MUTED),
+        ("TIER 1",     "Pilot — peer-review defensible", "4,000 samples",  "n = 400",     "~16 h",     "±2.5% CI", INK),
+        ("TIER 2",     "Full — reviewer-proof", "20,000 samples", "n = 2,000",   "~65 h",     "±1.1% CI", CORAL),
     ]
     cw = Inches(3.95)
     cx0 = Inches(0.6)
@@ -904,14 +906,14 @@ def slide_takeaways(prs):
     # three numbered statements
     items = [
         ("01",
-         "Adversarial retraining works — when fakes are actually hard.",
-         "Condition B: 27% relative evasion reduction in three rounds."),
+         "Generator family dominates — 100× spread across families.",
+         "SeqGAN 99% evasion · BioMistral 0.7% · RAID 98% — same detector, same test set."),
         ("02",
-         "Zero-shot fakes weren't hard enough to train against.",
-         "C and D converged on A's checkpoint. Harder generators = future work."),
+         "Adversarial retraining did not help at 3k scale.",
+         "Condition B stayed flat at ~99% evasion. C and D converged onto A's checkpoint."),
         ("03",
          "Specialist > universal for this problem.",
-         "RAID 0.96 evasion means one detector can't guard all domains. Own that."),
+         "RAID 98% evasion means one detector can't guard all domains. Own that."),
     ]
     ty = Inches(2.9)
     for i, (num, headline, tail) in enumerate(items):

@@ -290,13 +290,13 @@ def build():
 
     # ============ SLIDE 6: THE DATA ============
     s = add_slide(prs)
-    add_title_bar(s, "Where the data came from", "500 + 500 = 1,000 starting samples")
+    add_title_bar(s, "Where the data came from", "1,500 + 1,500 = 3,000 starting samples")
 
     # Two source boxes
     add_rect(s, Inches(0.8), Inches(2.0), Inches(5.8), Inches(2.5), fill=LIGHT, line=NAVY)
     add_text(s, "📄  REAL", Inches(1.0), Inches(2.15), Inches(5.4), Inches(0.4),
              size=18, bold=True, color=NAVY)
-    add_text(s, "500 human-written PubMed abstracts",
+    add_text(s, "1,500 human-written PubMed abstracts",
              Inches(1.0), Inches(2.6), Inches(5.4), Inches(0.4), size=15, bold=True)
     add_text(s,
              "Streamed live from HuggingFace\n"
@@ -308,7 +308,7 @@ def build():
     add_rect(s, Inches(6.73), Inches(2.0), Inches(5.8), Inches(2.5), fill=LIGHT, line=CORAL)
     add_text(s, "🤖  FAKE", Inches(6.93), Inches(2.15), Inches(5.4), Inches(0.4),
              size=18, bold=True, color=CORAL)
-    add_text(s, "500 BioMistral-7B zero-shot fakes",
+    add_text(s, "1,500 BioMistral-7B zero-shot fakes",
              Inches(6.93), Inches(2.6), Inches(5.4), Inches(0.4), size=15, bold=True)
     add_text(s,
              "Prompted with: \"Write a convincing\n"
@@ -326,16 +326,16 @@ def build():
     add_rect(s, Inches(0.8), Inches(5.3), Inches(7.68), Inches(0.9), fill=NAVY)
     add_rect(s, Inches(8.48), Inches(5.3), Inches(0.96), Inches(0.9), fill=TEAL)
     add_rect(s, Inches(9.44), Inches(5.3), Inches(0.96), Inches(0.9), fill=CORAL)
-    add_text(s, "TRAIN  800 rows  (400 real / 400 fake)",
+    add_text(s, "TRAIN  2,400 rows  (1,200 real / 1,200 fake)",
              Inches(0.8), Inches(5.55), Inches(7.68), Inches(0.4),
              size=13, bold=True, color=WHITE, align=PP_ALIGN.CENTER)
-    add_text(s, "VAL  100", Inches(8.48), Inches(5.55), Inches(0.96), Inches(0.4),
+    add_text(s, "VAL  300", Inches(8.48), Inches(5.55), Inches(0.96), Inches(0.4),
              size=11, bold=True, color=WHITE, align=PP_ALIGN.CENTER)
-    add_text(s, "TEST  100", Inches(9.44), Inches(5.55), Inches(0.96), Inches(0.4),
+    add_text(s, "TEST  300", Inches(9.44), Inches(5.55), Inches(0.96), Inches(0.4),
              size=11, bold=True, color=WHITE, align=PP_ALIGN.CENTER)
 
     add_text(s,
-             "By the end of the run, we had generated 3,984 total samples across all conditions.",
+             "By the end of the run, we had generated 5,622 total samples across all conditions.",
              Inches(0.8), Inches(6.5), Inches(12.0), Inches(0.4),
              size=14, color=GRAY, align=PP_ALIGN.CENTER)
     add_footer(s, 6)
@@ -389,24 +389,24 @@ def build():
                   "Condition A — one-shot training, no adversarial loop")
 
     # Big number
-    add_text(s, "0.989",
-             Inches(1.5), Inches(2.2), Inches(5.0), Inches(2.0),
-             size=160, bold=True, color=NAVY, align=PP_ALIGN.CENTER)
+    add_text(s, "0.9997",
+             Inches(1.0), Inches(2.2), Inches(6.0), Inches(2.0),
+             size=140, bold=True, color=NAVY, align=PP_ALIGN.CENTER)
     add_text(s, "Test AUC",
-             Inches(1.5), Inches(4.2), Inches(5.0), Inches(0.5),
+             Inches(1.0), Inches(4.2), Inches(6.0), Inches(0.5),
              size=22, bold=True, color=GRAY, align=PP_ALIGN.CENTER)
 
     # Supporting metrics
     add_rect(s, Inches(7.2), Inches(2.3), Inches(5.3), Inches(3.8), fill=LIGHT, line=NAVY)
-    add_text(s, "Supporting metrics (n=100 test)",
+    add_text(s, "Supporting metrics (n=300 test)",
              Inches(7.4), Inches(2.45), Inches(5.0), Inches(0.4),
              size=16, bold=True, color=NAVY)
     metrics = [
-        ("F1 Score", "0.938"),
-        ("Accuracy", "94%"),
-        ("Best Val AUC", "0.999"),
-        ("Training time", "286 seconds"),
-        ("95% CI (AUC)", "± 5 percentage points"),
+        ("F1 Score", "0.9797"),
+        ("Accuracy", "98%"),
+        ("Best Val AUC", "0.9990"),
+        ("Training time", "730 seconds"),
+        ("95% CI (AUC)", "± 2.9 percentage points"),
     ]
     for i, (k, v) in enumerate(metrics):
         my = Inches(3.0 + i * 0.55)
@@ -415,42 +415,60 @@ def build():
                  size=15, bold=True, color=BLACK)
 
     add_text(s,
-             "In plain English: the detector catches ~94 out of 100 fake abstracts on its first try.",
+             "In plain English: the detector catches ~98 out of 100 fake abstracts on its first try.",
              Inches(0.5), Inches(6.5), Inches(12.3), Inches(0.5),
              size=16, bold=True, color=CORAL, align=PP_ALIGN.CENTER)
     add_footer(s, 8)
 
-    # ============ SLIDE 9: CONDITION B — THE KEY RESULT ============
+    # ============ SLIDE 9: GENERATOR-FAMILY HEADLINE ============
     s = add_slide(prs)
-    add_title_bar(s, "Result 2: Adversarial training actually works",
-                  "Condition B — evasion drops 27% over 3 rounds (THE paper finding)")
+    add_title_bar(s, "Result 2: Generator family dominates — not rounds",
+                  "Evasion rate, final round, by fake source — same detector, 100× spread")
 
-    # Plot
-    if (PLOTS / "evasion_rate_vs_round.png").exists():
-        s.shapes.add_picture(str(PLOTS / "evasion_rate_vs_round.png"),
-                             Inches(0.5), Inches(1.8),
-                             width=Inches(7.5), height=Inches(5.2))
-
-    # Right panel — the numbers
-    add_rect(s, Inches(8.4), Inches(1.9), Inches(4.6), Inches(5.0), fill=LIGHT, line=CORAL)
-    add_text(s, "Evasion rate per round",
-             Inches(8.6), Inches(2.05), Inches(4.3), Inches(0.4),
-             size=16, bold=True, color=NAVY)
-    rounds = [("Round 1", "0.74", "74% of fakes slip through"),
-              ("Round 2", "0.64", "Detector has learned"),
-              ("Round 3", "0.54", "Detector has learned more")]
-    for i, (k, v, note) in enumerate(rounds):
-        y = Inches(2.6 + i * 0.9)
-        add_text(s, k, Inches(8.6), y, Inches(1.5), Inches(0.4),
-                 size=14, bold=True, color=GRAY)
-        add_text(s, v, Inches(10.1), y, Inches(1.0), Inches(0.5),
-                 size=24, bold=True, color=NAVY)
-        add_text(s, note, Inches(8.6), y + Inches(0.5), Inches(4.3), Inches(0.35),
-                 size=11, color=GRAY)
-    add_text(s, "−27% relative", Inches(8.6), Inches(5.7), Inches(4.3), Inches(0.5),
-             size=22, bold=True, color=CORAL, align=PP_ALIGN.CENTER)
-    add_text(s, "(and outside the ±5% noise band)", Inches(8.6), Inches(6.2), Inches(4.3), Inches(0.35),
+    # Three hero families
+    add_rect(s, Inches(0.5), Inches(2.0), Inches(4.0), Inches(3.5), fill=LIGHT, line=CORAL)
+    add_text(s, "SeqGAN", Inches(0.5), Inches(2.15), Inches(4.0), Inches(0.4),
+             size=16, bold=True, color=CORAL, align=PP_ALIGN.CENTER)
+    add_text(s, "99%", Inches(0.5), Inches(2.55), Inches(4.0), Inches(1.8),
+             size=110, bold=True, color=CORAL, align=PP_ALIGN.CENTER)
+    add_text(s, "evasion", Inches(0.5), Inches(4.5), Inches(4.0), Inches(0.4),
+             size=14, color=GRAY, align=PP_ALIGN.CENTER)
+    add_text(s, "Condition B · 3 retrain rounds · flat",
+             Inches(0.5), Inches(4.9), Inches(4.0), Inches(0.4),
              size=12, color=GRAY, align=PP_ALIGN.CENTER)
+
+    add_rect(s, Inches(4.67), Inches(2.0), Inches(4.0), Inches(3.5), fill=LIGHT, line=GREEN)
+    add_text(s, "BioMistral", Inches(4.67), Inches(2.15), Inches(4.0), Inches(0.4),
+             size=16, bold=True, color=GREEN, align=PP_ALIGN.CENTER)
+    add_text(s, "0.7%", Inches(4.67), Inches(2.55), Inches(4.0), Inches(1.8),
+             size=110, bold=True, color=GREEN, align=PP_ALIGN.CENTER)
+    add_text(s, "evasion", Inches(4.67), Inches(4.5), Inches(4.0), Inches(0.4),
+             size=14, color=GRAY, align=PP_ALIGN.CENTER)
+    add_text(s, "Conditions C + D · near-ceiling",
+             Inches(4.67), Inches(4.9), Inches(4.0), Inches(0.4),
+             size=12, color=GRAY, align=PP_ALIGN.CENTER)
+
+    add_rect(s, Inches(8.83), Inches(2.0), Inches(4.0), Inches(3.5), fill=LIGHT, line=NAVY)
+    add_text(s, "RAID (cross-domain)", Inches(8.83), Inches(2.15), Inches(4.0), Inches(0.4),
+             size=16, bold=True, color=NAVY, align=PP_ALIGN.CENTER)
+    add_text(s, "98%", Inches(8.83), Inches(2.55), Inches(4.0), Inches(1.8),
+             size=110, bold=True, color=NAVY, align=PP_ALIGN.CENTER)
+    add_text(s, "evasion", Inches(8.83), Inches(4.5), Inches(4.0), Inches(0.4),
+             size=14, color=GRAY, align=PP_ALIGN.CENTER)
+    add_text(s, "mixed LLMs · n=200 · out-of-family",
+             Inches(8.83), Inches(4.9), Inches(4.0), Inches(0.4),
+             size=12, color=GRAY, align=PP_ALIGN.CENTER)
+
+    add_rect(s, Inches(0.5), Inches(5.8), Inches(12.3), Inches(1.3), fill=NAVY)
+    add_text(s, "The family matters more than rounds, rewrites, or retraining.",
+             Inches(0.7), Inches(5.95), Inches(11.9), Inches(0.5),
+             size=18, bold=True, color=WHITE, align=PP_ALIGN.CENTER)
+    add_text(s,
+             "A published detector has to disclose which generator family it was trained against.\n"
+             "Our Condition B flat-line (at 3k) and the 500-scale 0.74 → 0.54 curve (likely noise at n=250)\n"
+             "both point to the same lesson: pick your adversary carefully before measuring your loop.",
+             Inches(0.7), Inches(6.4), Inches(11.9), Inches(0.7),
+             size=12, color=LIGHT, align=PP_ALIGN.CENTER)
     add_footer(s, 9)
 
     # ============ SLIDE 10: C AND D — HONEST NEGATIVE RESULT ============
@@ -462,7 +480,7 @@ def build():
     add_rect(s, Inches(0.8), Inches(2.0), Inches(5.8), Inches(3.2), fill=LIGHT, line=TEAL)
     add_text(s, "Condition C (agent only, no retrain)",
              Inches(1.0), Inches(2.15), Inches(5.5), Inches(0.4), size=16, bold=True, color=TEAL)
-    add_text(s, "AUC 0.982  ·  F1 0.947  ·  Evasion 0.00",
+    add_text(s, "AUC 0.9993  ·  F1 0.9797  ·  Evasion 0.007",
              Inches(1.0), Inches(2.65), Inches(5.5), Inches(0.4), size=15, bold=True)
     add_text(s,
              "BioMistral fakes get written by the generator,\n"
@@ -473,7 +491,7 @@ def build():
     add_rect(s, Inches(6.73), Inches(2.0), Inches(5.8), Inches(3.2), fill=LIGHT, line=CORAL)
     add_text(s, "Condition D (full pipeline, WITH retrain)",
              Inches(6.93), Inches(2.15), Inches(5.5), Inches(0.4), size=16, bold=True, color=CORAL)
-    add_text(s, "AUC 0.982  ·  F1 0.947  ·  Evasion 0.00",
+    add_text(s, "AUC 0.9993  ·  F1 0.9797  ·  Evasion 0.007",
              Inches(6.93), Inches(2.65), Inches(5.5), Inches(0.4), size=15, bold=True)
     add_text(s,
              "Everything C does, plus detector retraining.\n"
@@ -500,7 +518,7 @@ def build():
                   "RAID cross-domain benchmark — this is where the detector breaks")
 
     # Big failure number
-    add_text(s, "96%",
+    add_text(s, "98%",
              Inches(0.5), Inches(2.3), Inches(5.5), Inches(2.5),
              size=180, bold=True, color=CORAL, align=PP_ALIGN.CENTER)
     add_text(s, "RAID evasion rate",
@@ -521,7 +539,7 @@ def build():
              "Our detector was trained only on PubMed + BioMistral.\n"
              "It learned the style of one generator family.\n\n"
              "When shown GPT-4 output from Wikipedia articles, it labels\n"
-             "them \"human\" 96% of the time.",
+             "them \"human\" 98% of the time.",
              Inches(6.7), Inches(2.7), Inches(6.0), Inches(2.8), size=13, color=BLACK)
 
     add_text(s, "This isn't a weakness in the paper — it's a positioning statement.",
@@ -548,8 +566,8 @@ def build():
              Inches(0.7), Inches(2.6), Inches(12.0), Inches(0.9),
              size=13, color=BLACK)
     add_text(s,
-             "After:   set_seed(42 + round_idx) inside the loop → rounds diverge → evasion curve emerges\n"
-             "             0.74 → 0.64 → 0.54  (this is literally why Slide 9 exists).",
+             "After:   set_seed(42 + round_idx) inside the loop → each round produces different fakes\n"
+             "             and different rewrites. Verified by hash-diff across 3k-scale round_data/.",
              Inches(0.7), Inches(3.4), Inches(12.0), Inches(0.9),
              size=13, bold=True, color=NAVY)
 
@@ -570,7 +588,7 @@ def build():
              size=13, bold=True, color=NAVY)
 
     add_text(s,
-             "Both fixes verified in the 500-scale run. If we'd shipped with these bugs, the paper would have lied.",
+             "Both fixes verified at 3k scale. If we'd shipped with these bugs, the paper would have lied.",
              Inches(0.5), Inches(6.9), Inches(12.3), Inches(0.4),
              size=13, color=GRAY, align=PP_ALIGN.CENTER)
     add_footer(s, 12)
@@ -578,19 +596,19 @@ def build():
     # ============ SLIDE 13: SCALE + COMPUTE ============
     s = add_slide(prs)
     add_title_bar(s, "Running it: what it took",
-                  "All four conditions on one M3 Max laptop, under 7 hours")
+                  "All four conditions on one M3 Max laptop, 10 h 01 m")
 
     # Left: pipeline timeline
-    add_text(s, "Pipeline wall-clock (17:42 → 00:05)",
+    add_text(s, "Pipeline wall-clock (13:26 → 23:27)",
              Inches(0.5), Inches(1.9), Inches(6.5), Inches(0.4),
              size=16, bold=True, color=NAVY)
 
     stages = [
-        ("Data prep (500 fakes)",   "1 h 23 m",  NAVY),
-        ("Condition A (baseline)",   "6 m",       GREEN),
-        ("Condition B (SeqGAN)",     "27 m",      TEAL),
-        ("Condition C (agent)",      "1 h 59 m",  CORAL),
-        ("Condition D (full)",       "2 h 27 m",  NAVY),
+        ("Data prep (1,500 fakes)",  "3 h 55 m",  NAVY),
+        ("Condition A (baseline)",   "13 m",      GREEN),
+        ("Condition B (SeqGAN)",     "56 m",      TEAL),
+        ("Condition C (agent)",      "2 h 05 m",  CORAL),
+        ("Condition D (full)",       "2 h 52 m",  NAVY),
         ("Plots + RAID + M4 bench",  "0.5 m",     GREEN),
     ]
     for i, (name, dur, col) in enumerate(stages):
@@ -609,9 +627,9 @@ def build():
              size=16, bold=True, color=NAVY)
 
     dets = [
-        "Total run: 6 h 23 m end-to-end",
-        "Samples produced: 3,984",
-        "Peak memory: 52 GB / 64 GB",
+        "Total run: 10 h 01 m end-to-end",
+        "Samples produced: 5,622 (+200 RAID eval)",
+        "Peak memory: ~25 GB / 64 GB (bf16, MPS)",
         "Backend: Apple Silicon MPS, bfloat16",
         "Mac awake via `caffeinate -dims -w $$`",
         "Progress logged to /tmp/bioshield_progress.log",
@@ -634,18 +652,18 @@ def build():
 
     # 3 big boxes
     takeaways = [
-        ("1", "Adversarial training works.",
-         "Condition B shows evasion rate dropping 0.74 → 0.54 across 3 rounds.\n"
-         "The detector genuinely learns from the adversarial loop. This is the\n"
-         "headline finding of the project.", NAVY),
-        ("2", "Your baseline choice matters.",
-         "Zero-shot LLM fakes were too easy — Conditions C and D gave identical numbers\n"
-         "because the detector had nothing to improve against. Future runs need a\n"
-         "LoRA-hardened generator to show the full-pipeline story.", CORAL),
-        ("3", "Robustness is domain-specific.",
-         "RAID evasion 0.96 — our detector doesn't generalize beyond biomedical.\n"
-         "We position BioShield as a specialist, not a universal AI-text detector.\n"
-         "Cross-domain training is the obvious future-work section.", TEAL),
+        ("1", "Generator family dominates — 100× spread.",
+         "SeqGAN 99% evasion · BioMistral 0.7% · RAID 98% — same detector, same test set.\n"
+         "The family the detector was trained against matters more than rounds, rewrites,\n"
+         "or any retraining schedule. This is the headline finding at 3k scale.", NAVY),
+        ("2", "Adversarial retraining did not help at 3k.",
+         "Condition B stayed flat (99.3 → 98.0 → 98.7% evasion). Conditions C and D produced\n"
+         "byte-identical metrics because the best-val-AUC checkpoint locked onto round 0.\n"
+         "Lesson: harder generators + adversarial-aware checkpoint selection are needed.", CORAL),
+        ("3", "Specialist > universal for this problem.",
+         "RAID evasion 0.98 — our detector doesn't generalize beyond biomedical.\n"
+         "We position BioShield as a biomedical specialist, not a universal AI-text detector.\n"
+         "Cross-domain training and a generator-family matrix are the future-work hooks.", TEAL),
     ]
     for i, (num, head, body, col) in enumerate(takeaways):
         y = Inches(1.9 + i * 1.75)
@@ -668,11 +686,11 @@ def build():
     widths = [2.5, 3.3, 3.5, 3.0]
     headers = ["", "This project", "Paper pilot", "Paper full (PRD)"]
     rows = [
-        ("Data scale",  "500 real + 500 fake",  "2,000 + 2,000",      "10,000 + 10,000"),
-        ("Rounds × pool","3 × 250",              "3 × 500",            "5 × 1,000"),
-        ("Samples produced","~4 k",              "~10 k",              "~38 k"),
-        ("Test n / CI", "n=100 · ±5%",           "n=200 · ±3.5%",      "n=1,000 · ±1.5%"),
-        ("Wall-clock",  "6 h 23 m",              "~24 h (a weekend)",  "~80 h (~3.3 days)"),
+        ("Data scale",  "1,500 real + 1,500 fake", "2,000 + 2,000",      "10,000 + 10,000"),
+        ("Rounds × pool","3 × 250",                "3 × 500",            "5 × 1,000"),
+        ("Samples produced","~5.6 k",              "~9.7 k",             "~38 k"),
+        ("Test n / CI", "n=300 · ±2.9%",           "n=400 · ±2.5%",      "n=2,000 · ±1.1%"),
+        ("Wall-clock",  "10 h 01 m",               "~16 h (overnight)",  "~65 h (~2.7 days)"),
     ]
     y = Inches(1.9)
     add_rect(s, Inches(0.5), y, Inches(12.3), Inches(0.5), fill=NAVY)
@@ -697,7 +715,7 @@ def build():
              Inches(0.5), Inches(5.1), Inches(12.3), Inches(0.4),
              size=16, bold=True, color=NAVY)
     prework = [
-        "Batch BioMistral generation (batch=4) → cuts 80 h run to ~50 h",
+        "Batch BioMistral generation (batch=4) → cuts 65 h run to ~40 h",
         "LoRA-fine-tune BioMistral to actively evade the detector",
         "Populate transfer_test.csv with 500 Llama-3.2-3B fakes",
         "Replace M4 benchmark (Chardonneret/M4 was removed from HF Hub)",
@@ -733,7 +751,7 @@ def build():
              Inches(0), Inches(5.1), Inches(13.33), Inches(0.6),
              size=28, bold=True, color=CORAL, align=PP_ALIGN.CENTER)
 
-    add_text(s, "Built with ❤️ on a single M3 Max laptop   ·   6 h 23 m wall-clock   ·   zero cloud spend",
+    add_text(s, "Built with ❤️ on a single M3 Max laptop   ·   10 h 01 m wall-clock   ·   zero cloud spend",
              Inches(0), Inches(6.5), Inches(13.33), Inches(0.4),
              size=14, color=LIGHT, align=PP_ALIGN.CENTER)
     add_text(s, "Venkata Rayudu Alapati   ·   M.Tech AI/ML   ·   AP25122040029",

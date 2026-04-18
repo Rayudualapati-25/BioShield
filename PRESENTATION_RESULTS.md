@@ -116,3 +116,62 @@ Talk-track:
 4. **Key result**: Condition B shows evasion rate dropping **0.74 → 0.64 → 0.54** across 3 retrain rounds — the detector is genuinely learning from the adversarial loop.
 5. **Code quality**: flagged 2 bugs in prior smoke run (seeding, hard-fraction), fixed + verified in this run.
 6. **Cross-benchmark**: RAID + M4 results will show whether the detector generalizes beyond our own generator stack.
+
+---
+
+## Slide: From project to paper — what it takes to publish
+
+**Tuesday's presentation is "project-worthy."** A publishable paper needs a larger-scale run with tighter confidence intervals. Here's the roadmap.
+
+### What we have now (500-scale, this presentation)
+- 3,984 samples produced · n=100 test · ±5% CI on AUC
+- Full pipeline: **6 h 23 min on M3 Max**
+- Adequate to show pipeline works end-to-end + headline narrative
+
+### Paper Tier 1 — Pilot (peer-review defensible)
+
+| Dimension | Value |
+|---|---|
+| Data scale | 2,000 real + 2,000 fake |
+| Rounds × fake pool | 3 × 500 |
+| Samples produced | ~9,750 |
+| Test n / CI | n=200 · ±3.5% |
+| Wall-clock (M3 Max) | **~24 h (one weekend)** |
+
+### Paper Tier 2 — Full (reviewer-proof, original PRD spec)
+
+| Dimension | Value |
+|---|---|
+| Data scale | 10,000 real + 10,000 fake |
+| Rounds × fake pool | 5 × 1,000 |
+| Samples produced | ~38,500 |
+| Test n / CI | n=1,000 · ±1.5% |
+| Wall-clock (M3 Max) | **~80 h (~3.3 days)** |
+
+### Where the time goes (both tiers)
+
+```
+BioMistral zero-shot generation: ~70% of wall-clock
+Detector retrain (×4 conditions × N rounds): ~20%
+Qwen rewrite of hard-fraction subset: ~8%
+Everything else (SeqGAN, plots, benchmarks): ~2%
+```
+
+### Pre-work required before the paper run
+
+1. **Batch BioMistral generation** (batch=4 in `train_generator.py`) — cuts paper run from 80h → ~50h. 1-day code change.
+2. **Harder fake generator** — LoRA-fine-tune BioMistral to evade the detector (DPO or reward-weighted). Reason: Conditions C/D converged to A's checkpoint because zero-shot BioMistral fakes are too easy.
+3. **Populate `transfer_test.csv`** — Llama-3.2-3B generates 500 cross-family fakes for transfer-attack eval.
+4. **Replace M4 dataset** — `Chardonneret/M4` was removed from HF Hub. Swap in `Hello-SimpleAI/HC3` or `yaful/MAGE`.
+5. **Human evaluation** (50 samples, blinded) — paper reviewers expect this.
+
+### Total commitment for paper
+
+- **Tier 1 pilot**: 1 day pre-work + 1 weekend compute = **~4 days**
+- **Tier 2 full**: 3 days pre-work + 3.5 days compute = **~1 week**
+
+### The 3 claims the paper will defend
+
+1. *Adversarial retraining improves detector evasion by ≥20% relative* (we see 27% at 500-scale on SeqGAN — will tighten at 10k).
+2. *Zero-shot LLM rewrites are counterproductive — adversarial LoRA training is required for the agent to earn its place* (motivates Condition D vs C at scale).
+3. *Biomedical-specialist detectors don't transfer out-of-domain* (RAID evasion 0.96 at 500-scale — this becomes a positioning statement, not a weakness, in the paper).

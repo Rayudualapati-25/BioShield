@@ -78,12 +78,12 @@ run_stage() {
 notify "PIPELINE_BEGIN | presentation-run, config=$CONFIG"
 notify "INFO  | caffeinate PID=$CAFF_PID (prevents sleep for lifetime of this script)"
 
-# --- 1. Data prep: stream 500 real PubMed + generate 500 BioMistral fakes ---
+# --- 1. Data prep: stream 1500 real PubMed + generate 1500 BioMistral fakes ---
 # Needs HF hub reachable to stream PubMed abstracts. load_generator_fakes()
 # flips HF_HUB_OFFLINE internally for the BioMistral load, so global online is fine.
 go_online
-run_stage "data_prep_500" \
-  $PY data/prepare_data.py --config "$CONFIG" --max_real 500 --fakes-source generator \
+run_stage "data_prep_1500" \
+  $PY data/prepare_data.py --config "$CONFIG" --max_real 1500 --fakes-source generator \
   || notify "WARN  | data_prep hit an error. Attempting to continue — CSVs may already exist."
 
 # --- 2-5. Training stages: offline-safe (models already in HF cache). ---

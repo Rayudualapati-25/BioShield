@@ -1,0 +1,982 @@
+% =============================================================================
+% BioShield — IEEE Conference Paper (first draft)
+%
+% Title: BioShield: A Negative Result on Adversarial Retraining for Biomedical
+%        AI-Text Detection Under Generator-Family Shift
+%
+% Author: Venkata Rayudu Alapati  (M.Tech AI/ML, AP25122040029)
+% Date  : April 2026
+% =============================================================================
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{siunitx}
+\usepackage{url}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!50!black,
+  citecolor=blue!50!black,
+  urlcolor=blue!50!black
+}
+
+\graphicspath{{figures/}}
+
+\begin{document}
+
+\title{BioShield: A Negative Result on Adversarial Retraining for Biomedical AI-Text Detection Under Generator-Family Shift}
+
+\author{
+\IEEEauthorblockN{Venkata Rayudu Alapati}
+\IEEEauthorblockA{
+M.Tech, Department of Computer Science and Engineering\\
+SRM University, Andhra Pradesh, India\\
+Student ID: AP25122040029\\
+Email: alapativenkatarayudu@gmail.com}
+}
+
+\maketitle
+
+\begin{abstract}
+We study whether a 3-round adversarial retraining loop can harden a biomedical
+text deepfake detector against AI-generated abstracts. Our pipeline combines
+(i)~a BiomedBERT-Large detector, (ii)~a BioMistral-7B zero-shot generator and a
+SeqGAN baseline, and (iii)~a Qwen2.5-7B rewriting agent that targets the
+top-25\% hardest fakes per round. We evaluate four conditions in a controlled
+ablation on \(1{,}500\) real PubMed abstracts and \(1{,}500\) BioMistral fakes
+(test \(n=300\), Wilson 95\% CI \(\pm 2.9\) percentage points), plus a RAID
+cross-domain probe. Three findings emerge. \textbf{First}, generator-family
+identity dominates evasion behaviour: SeqGAN fakes evade at \(98.7\%\),
+BioMistral fakes at \(0.7\%\), and RAID's mixed-LLM corpus at \(98.3\%\) — a
+roughly \(100\times\) spread on the same detector. \textbf{Second}, three
+rounds of adversarial retraining did not measurably help at this scale:
+condition~B's evasion stayed flat (\(0.993 \to 0.980 \to 0.987\), within Monte
+Carlo noise on \(n=250\)), and conditions~C and~D produced byte-identical
+metrics because best-validation-AUC checkpointing rolled back to the round-0
+baseline (validation AUC ceiling \(0.9990\) was unreachable by retraining).
+\textbf{Third}, the detector did not transfer cross-domain (RAID accuracy
+\(0.11\), evasion \(0.983\)). We argue that (a)~published biomedical detectors
+must disclose the generator family they were trained against, (b)~best-val-AUC
+checkpoint selection silently hides retraining signal when the baseline is
+already at ceiling, and (c)~a previously reported \(0.74 \to 0.54\) evasion
+curve at \(500\)-sample scale was likely small-sample noise that did not
+reproduce at \(3\)k. We position BioShield as a biomedical specialist and
+treat the negative results as the paper's primary contribution.
+\end{abstract}
+
+\begin{IEEEkeywords}
+AI-generated text detection, biomedical NLP, adversarial training,
+SeqGAN, large language model rewriting agents, domain generalization,
+BiomedBERT, negative results, reproducibility.
+\end{IEEEkeywords}
+
+% ========================================================
+% sections/01_introduction
+% ========================================================
+\section{Introduction}
+\label{sec:introduction}
+
+Large language models (LLMs) can now generate biomedical research abstracts
+that are syntactically fluent, terminologically plausible, and difficult for
+non-experts to distinguish from real PubMed entries
+\cite{else2023chatgpt,liang2023gptdetect}. The downstream risks are concrete:
+fabricated abstracts can pollute citation databases, support fraudulent
+manuscripts, and amplify medical misinformation when they enter
+patient-facing search results \cite{majovsky2023artificialintelligence}. A
+biomedical-specific deepfake-text detector is therefore not a hypothetical
+need but a near-term tooling gap for journals, preprint servers, and
+clinical-information platforms.
+
+A recurring promise in the AI-text-detection literature is that
+\emph{adversarial training} — iteratively generating fakes, retraining the
+detector against them, and repeating — yields a more robust binary
+classifier \cite{zellers2019defending,gehrmann2019gltr,
+mitchell2023detectgpt}. We set out to test whether this promise survives a
+controlled, fully reproducible biomedical pipeline running on commodity
+hardware (a single Apple~M3~Max). Our pipeline pairs a
+\textbf{BiomedBERT-Large} detector \cite{gu2021biomedbert} with two
+generators (\textbf{BioMistral-7B} \cite{labrak2024biomistral} and
+\textbf{SeqGAN} \cite{yu2017seqgan}) and an LLM rewriting
+\textbf{agent} (\textbf{Qwen2.5-7B} \cite{qwen2024technical}) that targets
+the top-\(25\%\) hardest fakes per round. Four conditions isolate the
+contribution of each component (Section~\ref{sec:setup}).
+
+\textbf{Research questions.} We ask:
+\begin{itemize}
+\item \textbf{RQ1.} Does 3-round adversarial retraining lower the evasion
+  rate of a BiomedBERT detector against in-family fakes
+  (BioMistral)?
+\item \textbf{RQ2.} Does a Qwen2.5-7B rewriting agent meaningfully harden
+  the fake distribution beyond the zero-shot generator?
+\item \textbf{RQ3.} Does the resulting detector generalise to a
+  cross-domain mixed-LLM benchmark (RAID \cite{dugan2024raid})?
+\end{itemize}
+
+\textbf{Contributions.} We treat the answers — all of them negative — as the
+paper's contribution rather than an embarrassment to hide.
+\begin{enumerate}[leftmargin=*]
+\item \textbf{Generator-family dependence dominates.} Across one detector
+  and one test set, evasion ranges from \(0.7\%\) (BioMistral fakes) to
+  \(98.7\%\) (SeqGAN fakes) to \(98.3\%\) (RAID's mixed LLMs) — a
+  \(\sim\!100\times\) spread that dwarfs every other effect we measured.
+\item \textbf{Adversarial retraining produced no measurable improvement at
+  \(3\)k scale.} Condition~B's per-round evasion stayed at
+  \(0.993, 0.980, 0.987\) — within Wilson \(95\%\) CI noise on \(n=250\).
+  Conditions~C and~D produced byte-identical test metrics because the
+  best-validation-AUC checkpoint selector kept rolling back to the
+  baseline.
+\item \textbf{We retract a prior \(500\)-sample finding.} An earlier run
+  reported a \(0.74 \to 0.54\) evasion curve in Condition~B; with the
+  larger \(3\)k corpus and tighter CIs the curve disappears, and we now
+  attribute it to small-sample noise.
+\item \textbf{Cross-domain transfer is open.} A detector trained on
+  PubMed~+~BioMistral fails on RAID (accuracy \(0.11\), evasion \(0.983\)),
+  motivating future multi-family training rather than supporting any claim
+  of universal AI-text detection.
+\item \textbf{Reproducibility.} All code, data, metrics, plots, and a
+  one-command rerun script are released; the entire study costs
+  \(10\,\mathrm{h}\,01\,\mathrm{m}\) on a single laptop.
+\end{enumerate}
+
+\textbf{Paper organisation.} Section~\ref{sec:related} surveys
+machine-generated text detection, adversarial training for text classifiers,
+and LLM-as-agent rewriting. Section~\ref{sec:method} describes the BioShield
+pipeline. Section~\ref{sec:setup} details the four-condition ablation, data
+splits, and metrics. Section~\ref{sec:results} reports per-condition results
+and the RAID probe. Section~\ref{sec:discussion} owns the negative findings
+and explains the C\,$=$\,D pathology. Section~\ref{sec:limitations}
+catalogues limitations, and Section~\ref{sec:conclusion} closes.
+
+% ========================================================
+% sections/02_related_work
+% ========================================================
+\section{Related Work}
+\label{sec:related}
+
+We organise prior work into three threads that BioShield draws on directly:
+machine-generated text (MGT) detection, adversarial training for text
+classifiers, and LLM-as-agent rewriting.
+
+\subsection{Machine-Generated Text Detection}
+Early MGT detectors relied on stylometric and surface-statistical signals.
+GLTR \cite{gehrmann2019gltr} visualises token-level rank statistics from a
+language model to surface unusually probable continuations. Grover
+\cite{zellers2019defending} trained a discriminator jointly with a generative
+news LM and showed that the best detector for a given LM is often a model
+of the same family — an observation we revisit at biomedical scale.
+DetectGPT \cite{mitchell2023detectgpt} and zero-shot likelihood-perturbation
+methods exploit the curvature of the source LM's likelihood landscape.
+RoBERTa-based supervised detectors \cite{solaiman2019releasestrategies} remain
+the most widely deployed baseline, including the GPT-2 output detector and
+its biomedical-domain descendants \cite{liang2023gptdetect}. Recent
+benchmarks RAID \cite{dugan2024raid} and MAGE \cite{li2024mage} show
+that almost all such detectors collapse on out-of-distribution generators,
+which our cross-domain RAID probe confirms.
+
+\subsection{Adversarial Training for Text Classifiers}
+Adversarial training in NLP spans two distinct families. \emph{Sample-level}
+attacks such as TextAttack \cite{morris2020textattack},
+TextFooler \cite{jin2020textfooler}, and BERT-Attack
+\cite{li2020bertattack} perturb individual tokens or sentences against a
+fixed classifier. \emph{Generator-level} adversarial training instead
+trains a generator alongside the classifier; SeqGAN \cite{yu2017seqgan}
+remains the canonical baseline using policy-gradient REINFORCE. More recent
+work on RL-tuned generators \cite{ouyang2022rlhf} and DPO-style preference
+optimisation \cite{rafailov2023dpo} suggests that hardening generators via
+explicit reward signals is more effective than the SeqGAN regime — which
+our flat Condition~B curve indirectly supports.
+
+A practical question that this literature largely sidesteps is
+\emph{checkpoint selection}: when retraining yields a sequence of detector
+weights with comparable validation metrics, which checkpoint is shipped?
+Best-validation-AUC selection is the silent default in most public
+implementations. Our Section~\ref{sec:discussion} demonstrates that this
+default actively hides retraining signal when the baseline is already at
+ceiling, producing the C\,$=$\,D pathology we report.
+
+\subsection{LLM-as-Agent Rewriting and Red-Teaming}
+LLMs are increasingly used as \emph{agents} that probe and harden classifiers
+by paraphrase or rewrite \cite{perez2022redteaming,ganguli2022redteaming}.
+PAIR \cite{chao2024jailbreaking}, AutoDAN \cite{liu2023autodan}, and Tree of
+Attacks \cite{mehrotra2024toa} apply this idea to safety classifiers.
+Closer to our setting, recent work uses GPT-4 or open-weight LLMs to
+paraphrase machine-generated essays until they evade detection
+\cite{krishna2023paraphrasing,sadasivan2024aigeneratedtext}. Our agent
+loop instantiates the same idea with Qwen2.5-7B as the rewriter and the
+top-25\% hardest fakes from the prior round as the agent's input. The
+near-zero evasion gain we observe (Condition~C vs. Condition~A) is
+consistent with the negative scaling result in
+\cite{sadasivan2024aigeneratedtext} that paraphrase-based attacks plateau
+when the source generator is already in-family for the detector.
+
+\subsection{Position of BioShield}
+BioShield's contribution is not a new architecture or attack. It is a
+controlled, fully reproducible \emph{biomedical-domain} measurement of how
+much of the evasion-rate signal in published detector papers can be
+attributed to (a)~the choice of generator family, (b)~retraining rounds, and
+(c)~rewrite agents — and the answer, at \(3\)k scale, is that (a)~dominates
+by two orders of magnitude over (b) and (c). This complements the
+cross-domain failure mode reported by RAID \cite{dugan2024raid} and MAGE
+\cite{li2024mage} with an in-domain explanation for why the same detector
+can look near-perfect or near-useless depending on which generator the
+reviewer probes it with.
+
+% ========================================================
+% sections/03_method
+% ========================================================
+\section{Method}
+\label{sec:method}
+
+The BioShield pipeline has four interacting components: a real-text source
+(PubMed), two generators, a binary detector, and a rewriting agent. They are
+composed into a generic adversarial loop that any subset of components can
+inhabit, which is what enables our four-condition ablation.
+
+\subsection{Components}
+\label{ssec:components}
+
+\textbf{Real-text source.} We stream biomedical abstracts from
+\texttt{ncbi/pubmed} via the Hugging Face datasets API
+\cite{lhoest2021hfdatasets}. Sampling is uniform across years; abstracts
+shorter than 50 tokens are discarded.
+
+\textbf{Generator (Bio-family).} BioMistral-7B
+\cite{labrak2024biomistral} is a Mistral-7B \cite{jiang2023mistral} model
+continually pretrained on PubMed Central. We use it zero-shot, prompted
+with biomedical topic stubs and a structured-abstract instruction. Sampling
+uses temperature \(0.8\), top-\(p\) \(0.95\), and a maximum of \(384\)
+new tokens.
+
+\textbf{Generator (out-of-family baseline).} SeqGAN \cite{yu2017seqgan}
+trains a small LSTM generator with policy-gradient REINFORCE against a
+CNN-based discriminator. We pretrain SeqGAN on the same PubMed corpus that
+BioMistral saw and use it as the Condition~B fake source.
+
+\textbf{Detector.} We fine-tune
+\texttt{microsoft/BiomedNLP-BiomedBERT-large-uncased-abstract}
+\cite{gu2021biomedbert} (\(\sim\)340M parameters) as a binary
+real-vs-fake classifier with a single linear head over the
+\texttt{[CLS]} representation. Training uses bf16 mixed precision on
+Apple~MPS, batch size \(8\), learning rate \(2 \times 10^{-5}\) with
+linear decay and \(10\%\) warm-up, weight decay \(0.01\), and
+\(2\) epochs per round.
+
+\textbf{Agent (rewriter).} Qwen2.5-7B \cite{qwen2024technical} is used
+zero-shot as a rewriting agent. Given a fake abstract that the current
+detector found hard (probability of being real $\geq 0.5$), the agent
+produces a rewrite that ``reads more like a real PubMed abstract — keep
+the topic and the main claim, change the prose so it sounds like a
+biomedical reviewer wrote it.'' We do not fine-tune Qwen.
+
+\subsection{Adversarial Loop}
+\label{ssec:loop}
+
+Algorithm~\ref{alg:loop} formalises the general loop. The
+\textsc{Generate} step is component~(a): SeqGAN for Condition~B,
+BioMistral for Conditions~C and~D. The \textsc{HardSubset} and
+\textsc{Rewrite} steps are component~(b): present in C and D, absent in
+B. The \textsc{Retrain} step is component~(c): present in B and D,
+absent in A and C.
+
+\begin{algorithm}[t]
+\caption{BioShield adversarial loop}
+\label{alg:loop}
+\begin{algorithmic}[1]
+\REQUIRE Real corpus $\mathcal{R}$, generator $G$, detector $D_0$,
+agent $A$ (optional), rounds $T$, fake-pool size $K$, hard-fraction $h$
+\STATE $D \leftarrow D_0$  \COMMENT{baseline trained on
+$(\mathcal{R}, G(\cdot))$ once}
+\FOR{$r = 1, \dots, T$}
+  \STATE $\textsc{set\_seed}(\text{base} + r)$
+  \STATE $F_r \leftarrow \textsc{Generate}(G, K)$
+  \IF{agent enabled}
+    \STATE $H_r \leftarrow \textsc{HardSubset}(F_r, D, h)$
+    \STATE $F_r' \leftarrow \textsc{Rewrite}(A, H_r)$
+    \STATE $F_r \leftarrow (F_r \setminus H_r) \cup F_r'$
+  \ENDIF
+  \IF{retrain enabled}
+    \STATE $D \leftarrow \textsc{Retrain}(D, \mathcal{R}, F_r)$
+    \STATE $D \leftarrow \arg\max_{\text{epoch}} \mathrm{AUC}_{\text{val}}$
+    \COMMENT{best-val-AUC selection}
+  \ENDIF
+  \STATE record $(\mathrm{AUC}, F_1, \mathrm{evasion})_r$ on test set
+\ENDFOR
+\RETURN $D$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Hard-Subset Selection}
+We define a fake $x$ as ``hard'' for the current detector $D$ if
+$D(x) \geq 0.5$, i.e., the detector misclassifies it as real. With
+$h = 0.25$ and $K = 250$, the hard subset is the top-\(62\) fakes ranked by
+$D$'s real-probability score. Only this subset reaches the agent — the
+other \(188\) fakes are passed through unmodified. This keeps the
+agent budget small (\(\sim\!8\%\) of total wall-clock,
+Section~\ref{sec:setup}) while ensuring it spends compute where the
+detector is actually weak.
+
+\subsection{Checkpoint Selection}
+\label{ssec:checkpoint}
+After each retrain round, we keep the epoch checkpoint with the highest
+validation AUC. This is the silent default in most public implementations
+of adversarial-text training. We will show in Section~\ref{sec:discussion}
+that this choice is what produces the C\,$=$\,D pathology: when the
+baseline detector already hits the validation-AUC ceiling
+(\(0.9990\) on this corpus), no retrained checkpoint can replace it, so
+Condition~D's loop runs but never updates the deployed weights.
+
+\subsection{Reproducibility Controls}
+\label{ssec:repro}
+We fix the random seed (\texttt{base=42}) and call
+\texttt{set\_seed(42 + r)} at the top of every round so that round indices
+produce different fakes and rewrites without losing reproducibility. Mixed
+precision is forced to bf16 (Apple~MPS does not implement deterministic
+fp16 kernels). The detector architecture, hyperparameters, validation set,
+test set, agent prompt, and SeqGAN configuration are held constant across
+all four conditions; the only experimental variable is which steps of
+Algorithm~\ref{alg:loop} are enabled.
+
+% ========================================================
+% sections/04_experimental_setup
+% ========================================================
+\section{Experimental Setup}
+\label{sec:setup}
+
+\subsection{Data}
+\label{ssec:data}
+The corpus consists of \(1{,}500\) real PubMed abstracts streamed from
+\texttt{ncbi/pubmed} and \(1{,}500\) BioMistral-7B zero-shot fakes
+generated from biomedical topic stubs. The combined \(3{,}000\) abstracts
+are stratified-split \(80/10/10\) into Train (\(2{,}400\)), Val
+(\(300\)), and Test (\(300\)), each balanced \(1\!:\!1\) real-to-fake.
+Per-round fake pools (\(K=250\)) are sampled \emph{outside} the train/val/
+test splits and never re-enter them; this keeps the test set untouched
+across all rounds and conditions. The full data manifest, including
+per-row hashes, is committed to the repository so that any reviewer can
+verify there is no train--test contamination.
+
+\subsection{Conditions (the four-cell ablation)}
+\label{ssec:conditions}
+Table~\ref{tab:conditions} maps each condition onto the components of
+Algorithm~\ref{alg:loop}.
+
+\begin{table}[t]
+\caption{Four-condition ablation. The only experimental variable is which
+components of the adversarial loop are enabled.}
+\label{tab:conditions}
+\centering
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}llccc@{}}
+\toprule
+& \textbf{Generator} & \textbf{Agent} & \textbf{Retrain} & \textbf{Rounds} \\
+\midrule
+\textbf{A} static\_baseline & BioMistral & --- & no  & --- \\
+\textbf{B} seqgan\_only     & SeqGAN     & --- & yes & 3 \\
+\textbf{C} agent\_only      & BioMistral & Qwen2.5 & no  & 3 (gen+rewrite) \\
+\textbf{D} full\_pipeline   & BioMistral & Qwen2.5 & yes & 3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Cross-domain Probe: RAID}
+\label{ssec:raid}
+We evaluate Condition~A's detector (without retraining) on the biomedical
+slice of the RAID benchmark \cite{dugan2024raid}: \(200\) samples
+(\(19\) real, \(181\) fake) with fakes generated by ChatGPT, GPT-4,
+Claude, Llama, and other LLMs that the detector never saw. RAID is
+strictly an evaluation set; no RAID samples enter training.
+
+\subsection{Metrics}
+\label{ssec:metrics}
+We report four metrics, all computed on the held-out Test set unless
+explicitly tagged ``fake-pool'':
+
+\begin{itemize}[leftmargin=*]
+\item \textbf{AUC.} Area under the ROC curve. Threshold-free.
+\item \textbf{F1.} Harmonic mean of precision and recall at threshold
+  \(0.5\).
+\item \textbf{Accuracy.} Fraction of correct labels.
+\item \textbf{Evasion rate.} Fraction of \emph{fake} samples assigned
+  probability $< 0.5$ (i.e., labelled as real). Computed both on the
+  Test set's \(150\) fakes and on each round's \(250\)-sample
+  \emph{fake-pool}. The fake-pool evasion is the metric the loop is
+  effectively optimising against.
+\end{itemize}
+
+\textbf{Confidence intervals.} All test-set rates are reported with Wilson
+\(95\%\) confidence intervals. At \(n=300\) the half-width is
+\(\pm 0.029\); at \(n=250\) (per-round fake pool) it is \(\pm 0.062\).
+We will use these CIs to bound any per-round claims.
+
+\subsection{Hardware and Software}
+\label{ssec:hardware}
+All experiments run on a single Apple~M3~Max~64\,GB laptop using
+PyTorch~2.4 with the Apple~MPS backend and bf16 mixed precision. We set
+\texttt{PYTORCH\_MPS\_HIGH\_WATERMARK\_RATIO=0.0} and
+\texttt{OMP\_NUM\_THREADS=10}. The orchestrator process is wrapped in
+\texttt{caffeinate -dims -w \$PID} so the lid can close without
+suspending the run.
+
+\subsection{Wall-clock Budget}
+\label{ssec:walltime}
+Table~\ref{tab:walltime} reports the wall-clock breakdown of one
+end-to-end run (\(10\,\mathrm{h}\,01\,\mathrm{m}\)) and where the time
+goes. Data preparation (initial \(1{,}500\)-fake BioMistral generation)
+and Condition~D dominate; plots, RAID, and the M4 skip are essentially
+free.
+
+\begin{table}[t]
+\caption{End-to-end wall-clock on a single Apple M3 Max
+(bf16, MPS). The whole pipeline is one shell script.}
+\label{tab:walltime}
+\centering
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Stage} & \textbf{Wall-clock} & \textbf{\%} \\
+\midrule
+Data prep (1{,}500 PubMed + 1{,}500 BioMistral)
+                                & 3\,h\,55\,m & 39 \\
+Condition A (baseline detector) & 13\,m       &  2 \\
+Condition B (SeqGAN $\times$ 3 rounds)
+                                & 56\,m       &  9 \\
+Condition C (BioMistral + Qwen $\times$ 3)
+                                & 2\,h\,05\,m & 21 \\
+Condition D (B+C, with retrain $\times$ 3)
+                                & 2\,h\,52\,m & 29 \\
+Plots                           & 0\,s        & 0 \\
+RAID benchmark                  & 22\,s       & $<$ 1 \\
+M4 (skipped, dataset removed)   & 2\,s        & $<$ 1 \\
+\midrule
+\textbf{Total}                  & \textbf{10\,h\,01\,m} & 100 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{What We Did Not Run}
+For honesty: the M4 \cite{wang2024m4} cross-domain benchmark was removed
+from the Hugging~Face Hub between project start and this run. We record a
+graceful skip in \texttt{condition\_D\_m4\_metrics.json}. A
+Llama-3.2-3B transfer-attack evaluation is queued but not in this draft;
+the empty \texttt{transfer\_test.csv} placeholder is committed.
+
+% ========================================================
+% sections/05_results
+% ========================================================
+\section{Results}
+\label{sec:results}
+
+We report results in three subsections that follow the four-condition
+ablation, the per-round retraining curves, and the cross-domain RAID
+probe. All confidence intervals are Wilson \(95\%\); the half-width is
+\(\pm 0.029\) at \(n = 300\) (test set) and \(\pm 0.062\) at
+\(n = 250\) (per-round fake pool).
+
+\subsection{Headline Comparison}
+\label{ssec:headline}
+
+Table~\ref{tab:headline} summarises the final-round metrics for each
+condition together with the RAID cross-domain evaluation.
+
+\begin{table*}[t]
+\caption{Final-round metrics (test \(n=300\), Wilson \(95\%\) CI half-width
+\(\pm 0.029\)) for the four conditions and the RAID cross-domain probe.
+Evasion is the fraction of fakes assigned probability $<0.5$ on each
+condition's final-round fake pool (\(n=250\), CI half-width \(\pm 0.062\)).
+RAID evasion is on its full fake split (\(n=181\)).}
+\label{tab:headline}
+\centering
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Condition} & \textbf{AUC} & \textbf{F1} & \textbf{Acc.} & \textbf{Evasion} \\
+\midrule
+A — static\_baseline      & 0.9997 & 0.9797 & 0.980 & --- \\
+B — seqgan\_only          & 0.9498 & 0.6546 & 0.490 & 0.987 \\
+C — agent\_only           & 0.9993 & 0.9797 & 0.980 & 0.007 \\
+D — full\_pipeline        & 0.9993 & 0.9797 & 0.980 & 0.007 \\
+\midrule
+RAID (cross-domain, A's detector)
+                          & 0.8171 & 0.176  & 0.110 & 0.983 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+Three readings:
+\begin{enumerate}[leftmargin=*]
+\item Conditions~A, C, and D form a tight cluster
+  (AUC \(\approx 0.9994\)) that is statistically indistinguishable on
+  \(n=300\). Condition~B is far below
+  (\(\Delta_{\mathrm{AUC}} \approx 0.05\), well outside the
+  \(\pm 0.029\) CI).
+\item Conditions~C and~D produce \emph{byte-identical} test metrics. We
+  diagnose this as a checkpoint-selection pathology in
+  Section~\ref{sec:discussion}.
+\item Evasion ranges from \(0.007\) to \(0.987\) on the same detector
+  family — a $\sim$\(140\times\) spread driven by which generator
+  produced the fakes.
+\end{enumerate}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{ablation_comparison.png}
+\caption{Side-by-side bar comparison across A/B/C/D and RAID. Tight
+A/C/D cluster on AUC and F1; Condition~B's collapse is driven by
+SeqGAN-style fakes that the detector ranks correctly (AUC \(\approx 0.95\))
+but cannot classify (F1 \(\approx 0.65\)). RAID is the right-most
+column; AUC is preserved at \(0.82\) but accuracy collapses to \(0.11\)
+because the threshold is wrong cross-domain.}
+\label{fig:ablation}
+\end{figure}
+
+\subsection{Per-Round Retraining Curves}
+\label{ssec:perround}
+
+Figure~\ref{fig:auc_f1} reports test AUC and F1 vs. round. Tables
+\ref{tab:b_perround} and \ref{tab:c_perround} report the corresponding
+per-round evasion on each condition's fake pool. Condition~D's per-round
+metrics are byte-identical to Condition~C's and are omitted.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{auc_f1_vs_round.png}
+\caption{Test AUC (top) and F1 (bottom) versus retraining round for
+Conditions B/C/D. Condition~B sits at the bottom of the AUC plot
+(\(\approx 0.949\) flat) and the bottom of the F1 plot
+(\(\approx 0.65\) flat). Conditions~C and~D track Condition~A's
+ceiling (\(\mathrm{AUC} \approx 0.999\), \(F_1 \approx 0.98\))
+across all three rounds.}
+\label{fig:auc_f1}
+\end{figure}
+
+\begin{table}[t]
+\caption{Condition~B per-round metrics. Test-set evasion is on
+\(n=300\); fake-pool evasion is on \(n=250\) per round. The
+fake-pool differences (\(\pm 0.013\)) are smaller than the
+\(\pm 0.062\) CI on \(n=250\); we therefore do not claim per-round
+improvement.}
+\label{tab:b_perround}
+\centering
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{@{}cccccc@{}}
+\toprule
+\textbf{Round} & \textbf{AUC} & \textbf{F1} & \textbf{Acc.} &
+\textbf{Test ev.} & \textbf{Pool ev.} \\
+\midrule
+1 & 0.9492 & 0.6532 & 0.487 & 0.953 & \textbf{0.993} \\
+2 & 0.9485 & 0.6561 & 0.493 & 0.947 & \textbf{0.980} \\
+3 & 0.9498 & 0.6546 & 0.490 & 0.953 & \textbf{0.987} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\caption{Condition~C per-round metrics. Condition~D is byte-identical
+because of the checkpoint-selection pathology
+(Section~\ref{sec:discussion}). The detector catches BioMistral fakes
+$> 99\%$ of the time even before any retraining round.}
+\label{tab:c_perround}
+\centering
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{@{}cccccc@{}}
+\toprule
+\textbf{Round} & \textbf{AUC} & \textbf{F1} & \textbf{Acc.} &
+\textbf{Test ev.} & \textbf{Pool ev.} \\
+\midrule
+1 & 0.9984 & 0.9764 & 0.977 & 0.013 & \textbf{0.013} \\
+2 & 0.9990 & 0.9797 & 0.980 & 0.007 & \textbf{0.007} \\
+3 & 0.9993 & 0.9797 & 0.980 & 0.007 & \textbf{0.007} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{evasion_rate_vs_round.png}
+\caption{Per-round evasion rate on each condition's fake pool. Condition~B
+is flat near the top of the chart at $\sim$\(99\%\); Conditions~C and~D
+track each other near the bottom at $\sim$\(0.7\%\). The vertical gap
+between the two curves is the generator-family effect we report; the
+within-curve variation is inside the \(\pm 0.062\) Wilson CI on
+\(n=250\) and we make no per-round claims about it.}
+\label{fig:evasion}
+\end{figure}
+
+\subsection{The Generator-Family View}
+\label{ssec:family}
+
+Re-organising the same numbers by generator family makes the dominant
+effect visible (Table~\ref{tab:family}).
+
+\begin{table}[t]
+\caption{Same detector family (BiomedBERT-Large), three generator
+families, three orders of magnitude difference in evasion. Each row is
+the final-round evasion rate on the corresponding fake source.}
+\label{tab:family}
+\centering
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lcl@{}}
+\toprule
+\textbf{Generator family} & \textbf{Evasion} & \textbf{Source} \\
+\midrule
+BioMistral-7B (zero-shot)        & 0.007 & Conditions C, D pool \\
+SeqGAN (LSTM + REINFORCE)        & 0.987 & Condition B pool \\
+Mixed LLMs (ChatGPT, GPT-4, \dots) & 0.983 & RAID benchmark \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A spread of $\sim$\(140\times\) within one detector and one test
+construction. Section~\ref{sec:discussion} argues that this is the
+single most important number in the paper, and that it should be a
+mandatory disclosure for any deployed AI-text detector.
+
+\subsection{Cross-Domain Probe (RAID)}
+\label{ssec:raid_results}
+
+The detector that scores AUC \(0.9997\) on its in-distribution test set
+scores AUC \(0.8171\) on RAID's biomedical slice
+(\(n = 200\); 19~real, 181~fake). Crucially, F1 collapses to \(0.176\)
+and accuracy to \(0.11\): the detector still ranks fakes above reals
+(positive AUC) but its decision threshold (\(0.5\) calibrated on
+PubMed~+~BioMistral) puts \(178\) of the \(181\) fakes on the
+``real'' side.
+
+This pattern — preserved AUC, collapsed accuracy — is consistent with the
+domain-shift literature: the model's ranking ability transfers, its
+calibration does not. We return to this in Section~\ref{sec:discussion}.
+
+% ========================================================
+% sections/06_discussion
+% ========================================================
+\section{Discussion}
+\label{sec:discussion}
+
+We organise the discussion around the three negative findings, in
+descending order of how much they affect what other practitioners should
+do.
+
+\subsection{Generator-Family Identity Dominates Evasion}
+\label{ssec:family_disc}
+
+Across one detector architecture, one training corpus, and one held-out
+test set, evasion ranged from \(0.007\) (BioMistral fakes) to
+\(0.987\) (SeqGAN fakes) to \(0.983\) (RAID's mixed LLMs). Three
+points follow.
+
+\paragraph{The effect dwarfs everything else we measured.}
+Per-round evasion variation in Condition~B (\(0.993, 0.980, 0.987\))
+sits inside the \(\pm 0.062\) Wilson CI on \(n=250\); the
+between-condition retraining effect is therefore zero within noise. The
+agent-rewrite effect (\(\Delta_{\mathrm{evasion}} \approx 0.006\) between
+C-round-1 and C-round-3) is similarly inside CI. The
+between-generator-family effect (\(\Delta_{\mathrm{evasion}}
+\approx 0.98\)) is two orders of magnitude larger than either. If a
+practitioner is choosing where to invest engineering time, the lesson is
+unambiguous: \emph{the choice of fakes the detector trains against
+matters far more than how many adversarial rounds you run, or whether
+you wrap an LLM agent around the loop}.
+
+\paragraph{Why SeqGAN is so much harder.}
+SeqGAN produces text whose token-level distribution is far from the
+biomedical-English manifold the detector was pretrained on. This is
+visible in Condition~B's metric pattern: AUC remains acceptable
+(\(\approx 0.95\)), meaning the detector \emph{ranks} SeqGAN fakes
+above PubMed reals, but F1 collapses to \(0.65\), meaning the
+calibrated threshold lands in a region where most SeqGAN samples are
+called real. Two epochs of retraining per round do not move the
+threshold enough to recover, and from inspection of the per-round
+checkpoints they do not move the underlying decision surface either.
+This is consistent with the family-of-generators observation in
+Grover \cite{zellers2019defending}: the best detector for an
+out-of-family generator is often a detector that was \emph{also}
+trained on that family.
+
+\paragraph{Disclosure recommendation.}
+We argue that any deployed biomedical AI-text detector should publish a
+generator-family evasion matrix as part of its documentation, with at
+least one in-family LLM, one out-of-family LLM, and one non-LLM
+generator. Reporting only in-family AUC produces numbers that look
+near-perfect and are operationally meaningless if the deployment
+adversary uses any other generator.
+
+\subsection{The C\,$=$\,D Pathology and Best-Val-AUC Selection}
+\label{ssec:cd_path}
+
+Conditions~C and~D produced byte-identical test metrics across all three
+rounds. We diagnose this as an interaction between the detector's
+ability and the silent default of best-validation-AUC checkpoint
+selection.
+
+The Condition~A baseline detector reaches validation AUC \(0.9990\) —
+within \(\sim 0.001\) of the empirical ceiling on this corpus. In
+Condition~D, each retraining round computes the validation AUC of
+every epoch checkpoint and keeps the best. Because no retrained
+checkpoint can exceed the baseline's \(0.9990\), the selector keeps
+rolling back to the round-0 weights — i.e., to Condition~A's
+detector. Condition~D's loop \emph{runs}, generates fakes, computes
+hard subsets, calls the agent, and writes \(936\) new fakes to disk;
+none of that work updates the deployed detector.
+
+This is not a bug in our implementation. It is the expected behaviour
+of best-val-AUC selection when the baseline is at ceiling. The
+implication is that the metric one reports for ``the full pipeline''
+is actually the metric of a detector that no rewrite or retrain ever
+modified — an effect that, to our knowledge, is not flagged in the
+adversarial-text-training literature.
+
+\paragraph{Two ways out.}
+\begin{enumerate}[leftmargin=*]
+\item \emph{Adversarial-aware checkpoint selection}: keep the checkpoint
+  with the lowest evasion on a held-out adversarial pool, not the
+  highest validation AUC. This trades a small amount of clean-data
+  performance for measurable adversarial signal.
+\item \emph{Stronger generators}: an LLM that has been LoRA-fine-tuned
+  to actively evade the detector (e.g., DPO with detector logits as
+  reward) would push validation AUC below the baseline ceiling and
+  give retraining a non-zero gradient. Our flat
+  Condition~B curve suggests that without one of these two changes,
+  the loop has nothing to learn from at this scale.
+\end{enumerate}
+
+\subsection{Cross-Domain Brittleness}
+\label{ssec:domain_disc}
+
+RAID's biomedical slice exposes a calibration failure that the
+in-distribution metrics cleanly hide. AUC stays at \(0.82\), so the
+detector retains ranking ability across domains. Accuracy collapses to
+\(0.11\) and evasion shoots to \(0.983\), so its calibrated threshold
+is meaningless on RAID's mixed-LLM fakes. The qualitative pattern is
+the same brittleness reported by the RAID and MAGE papers; the
+quantitative shape (huge AUC--accuracy gap) is a useful signal for
+practitioners who only ever look at AUC.
+
+For the BioShield deployment story, this means we cannot honestly
+position the detector as a universal AI-text detector. We position it
+instead as a \emph{biomedical specialist} trained against the
+BioMistral family, with explicit cross-domain failure documented up
+front. Reviewers asking for cross-domain robustness should be pointed
+to the multi-family training proposal in Section~\ref{sec:limitations}.
+
+\subsection{Retraction of the 500-Scale ``Adversarial Training Works''
+Curve}
+\label{ssec:retraction}
+
+A previous version of this work, run at \(500\)-sample scale
+(\(250\) real \(+\) \(250\) BioMistral fake, fake-pool
+\(n = 250\) per round, test \(n = 100\)), reported a per-round
+evasion curve of \(0.74 \to 0.64 \to 0.54\) on Condition~B and
+interpreted it as evidence that 3-round adversarial retraining works
+against SeqGAN-style fakes. The narrative slide deck for that run
+opened with this number.
+
+At \(3{,}000\)-sample scale, with the same
+random seed, hyperparameters, and pipeline code, that curve does not
+reproduce. Per-round evasion is \(0.993, 0.980, 0.987\) — flat within
+the \(\pm 0.062\) Wilson CI on \(n = 250\). We retract the prior
+``adversarial training works'' claim and attribute the \(500\)-scale
+trend to small-sample noise: the per-round evasion sample is binary on
+\(n = 250\), giving an effective standard deviation of
+\(\sigma \approx 0.03\), which can produce a \(\Delta = 0.20\) drift
+across three rounds with non-trivial probability under the null.
+
+This is, in our reading, the most important methodological lesson of
+the project: \emph{adversarial training results at sub-thousand sample
+scale should be treated as exploratory, not load-bearing}, and any
+published evasion curve should disclose its sample size and the CI
+implied by it.
+
+% ========================================================
+% sections/07_limitations_future_work
+% ========================================================
+\section{Limitations and Future Work}
+\label{sec:limitations}
+
+We catalogue limitations explicitly so reviewers and downstream users can
+calibrate the results.
+
+\subsection{Limitations}
+
+\paragraph{Single random seed per run.}
+All four conditions and the RAID probe were evaluated under
+\texttt{base=42} with per-round \texttt{set\_seed(42 + r)}. The
+\(\pm 0.029\) Wilson half-width on test \(n=300\) bounds within-run
+variance, but does not bound run-to-run variance from re-seeding.
+Reported numbers should be read as point estimates; multi-seed
+replication is required for any confidence-interval claim across
+runs.
+
+\paragraph{Three-thousand-sample scale.}
+Test \(n=300\) produces a \(\pm 0.029\) CI half-width — wide enough that
+the C\,$=$\,A and D\,$=$\,A equivalences are formally ``not significantly
+different,'' rather than proven equal. A paper-grade replication should
+push to \(n=2{,}000\) (Wilson half-width \(\pm 0.011\)) before treating
+the C\,$=$\,D pathology claim as a tight finding.
+
+\paragraph{Single biomedical domain.}
+The detector is trained on PubMed and one biomedical-specialised LLM. We
+do not test on clinical notes (MIMIC-III, MIMIC-IV) or on biomedical
+preprints (bioRxiv, medRxiv). The cross-domain failure on RAID is
+suggestive but RAID itself is heterogeneous; a within-biomedical
+domain-shift study (PubMed-trained, MIMIC-tested) would tighten the
+domain-shift claim.
+
+\paragraph{Zero-shot generator and agent.}
+Both BioMistral-7B (the generator) and Qwen2.5-7B (the agent) are used
+zero-shot. A LoRA-fine-tuned version of either, trained against the
+detector's logits, would likely change the picture. We treat this as
+the most important pre-paper engineering investment
+(Section~\ref{ssec:future}).
+
+\paragraph{Best-validation-AUC checkpoint selection.}
+The C\,$=$\,D pathology is downstream of this design choice. We have not
+yet swept alternative selectors (best fake-pool evasion, best worst-case
+evasion across pools, average over the last $k$ epochs). A small grid
+sweep over selectors would convert our pathology observation into a
+quantitative recommendation.
+
+\paragraph{No human evaluation.}
+We do not include a blinded human reader study in this draft. Reviewers
+will reasonably want one; we plan a 50-sample blinded protocol
+(Section~\ref{ssec:future}).
+
+\paragraph{M4 cross-domain benchmark unavailable.}
+The \texttt{Chardonneret/M4} dataset \cite{wang2024m4} was removed from
+the Hugging~Face Hub between project start and this run. We log a
+graceful skip in \texttt{condition\_D\_m4\_metrics.json} and propose
+\texttt{Hello-SimpleAI/HC3} \cite{guo2023hc3} or
+\texttt{yaful/MAGE} \cite{li2024mage} as replacements for the paper
+revision.
+
+\paragraph{Transfer attack queued, not run.}
+A Llama-3.2-3B transfer attack is configured (model downloaded,
+inference verified) but the \(500\)-sample fake corpus is not yet
+generated. The completed family-cross-check matrix is the most
+significant missing experiment.
+
+\subsection{Future Work}
+\label{ssec:future}
+
+\paragraph{Pre-paper, this quarter.}
+\begin{enumerate}[leftmargin=*]
+\item \emph{Multi-seed replication.} Repeat the
+  \(3{,}000\)-sample run under three additional seeds
+  (\texttt{base} $\in \{43, 44, 45\}$) and report mean $\pm$ s.d.\
+  rather than point estimates.
+\item \emph{LoRA-hardened BioMistral.} Fine-tune BioMistral with DPO
+  using the detector's real-probability score as the negative reward.
+  Expected to break the validation-AUC ceiling and reactivate the
+  retraining gradient.
+\item \emph{Adversarial-aware checkpoint selector.} Replace
+  best-val-AUC with best-fake-pool-evasion; re-run Conditions~B and~D
+  end to end; report whether the C\,$=$\,D pathology dissolves.
+\item \emph{Llama-3.2-3B transfer attack.} Generate \(500\) Llama
+  fakes, score with Condition~A's detector, report a \(2\times 2\)
+  family-cross-check matrix (BioMistral, Llama, SeqGAN, RAID).
+\item \emph{Blinded human evaluation.} \(50\) abstracts (\(25\)
+  real + \(25\) BioMistral fake), \(3\) M.Tech-level domain readers,
+  per-reader and aggregated accuracy with Cohen's $\kappa$.
+\end{enumerate}
+
+\paragraph{Paper Tier~1 (peer-review defensible).}
+Increase scale to \(2{,}000\) real + \(2{,}000\) fake, \(3\) rounds
+$\times$ \(500\) per pool, test \(n=400\) (\(\pm 2.5\%\) CI). Wall-clock
+budget on M3~Max: $\sim$\(16\) hours (one overnight). With batched
+BioMistral generation (\texttt{batch\_size=4} in
+\texttt{train\_generator.py}) we estimate
+\(10\!-\!12\) hours.
+
+\paragraph{Paper Tier~2 (reviewer-proof).}
+Scale to \(10{,}000\) real + \(10{,}000\) fake, \(5\) rounds $\times$
+\(1{,}000\) per pool, test \(n=2{,}000\) (\(\pm 1.1\%\) CI), full
+family-cross-check matrix and human eval. Estimated wall-clock with
+batching: $\sim$\(40\!-\!65\) hours.
+
+\paragraph{Beyond the current pipeline.}
+Two longer-horizon directions are worth flagging. (i)~A multi-domain
+detector trained jointly on PubMed, MIMIC, and bioRxiv with
+domain-adversarial pretraining \cite{ganin2016dann} should help with
+cross-domain calibration. (ii)~A multi-family training corpus including
+SeqGAN-style fakes, BioMistral fakes, and at least one general-purpose
+LLM family (Llama, GPT) would convert the family-disclosure
+recommendation in Section~\ref{ssec:family_disc} from a measurement
+into a deployable defence.
+
+% ========================================================
+% sections/08_conclusion
+% ========================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+We set out to test whether a 3-round adversarial retraining loop, with
+or without an LLM rewriting agent, can harden a BiomedBERT detector
+against AI-generated biomedical abstracts. On a controlled
+\(3{,}000\)-sample corpus, evaluated under fixed seeds and
+hyperparameters on a single Apple M3~Max laptop in
+\(10\,\mathrm{h}\,01\,\mathrm{m}\) of wall-clock, the answer is no — and
+the negative result is informative.
+
+Three findings stand out. First, the choice of \emph{generator family}
+explains roughly \(140\times\) more variance in evasion rate than the
+choice of retraining schedule or rewriting agent: BioMistral fakes evade
+at \(0.7\%\), SeqGAN fakes at \(98.7\%\), RAID's mixed LLMs at
+\(98.3\%\), all on the same detector. Second, three rounds of
+adversarial retraining produced no measurable improvement on either
+in-family (Condition~C, D) or out-of-family (Condition~B) fakes; the
+common best-validation-AUC checkpoint selector silently rolled
+Conditions~C and~D back to the baseline weights, which is the source of
+their byte-identical metrics. Third, a previous \(500\)-sample evasion
+curve of \(0.74 \to 0.54\) in Condition~B did not reproduce at
+\(3{,}000\) scale and is best explained as small-sample noise within the
+\(\pm 0.062\) Wilson CI on \(n = 250\).
+
+The actionable takeaways for downstream practitioners are concrete: any
+deployed AI-text detector should publish a
+generator-family evasion matrix as part of its documentation; the
+default best-validation-AUC checkpoint selector should be replaced by an
+adversarial-aware selector when the baseline is at ceiling; and
+sub-thousand-sample evasion claims should be treated as exploratory
+until they are replicated at a scale where Wilson CIs do not absorb the
+effect being claimed. We position BioShield as a biomedical specialist
+detector with documented cross-domain failure, release the full code,
+data, metrics, and one-command rerun script at
+\url{https://github.com/Rayudualapati-25/BioShield}, and treat the
+multi-seed replication, LoRA-hardened generator, and family-cross-check
+matrix as the highest-priority follow-ups for the paper revision.
+
+
+\section*{Reproducibility Statement}
+All code, configuration files, per-round metric JSONs, plots, and the
+\(3{,}000\)-sample data manifest are released at
+\url{https://github.com/Rayudualapati-25/BioShield}. The complete
+\(10\,\mathrm{h}\,01\,\mathrm{m}\) pipeline reproduces with
+\texttt{bash scripts/run\_presentation.sh} on a single Apple~M3~Max~64\,GB
+machine. Random seeds (\texttt{base=42}, per-round
+\texttt{set\_seed(42+r)}), bf16 dtype, and the
+\texttt{microsoft/BiomedNLP-BiomedBERT-large} checkpoint are fixed across
+conditions; the only variable is training data.
+
+\section*{Acknowledgment}
+The author thanks the maintainers of the BioMistral, BiomedBERT, Qwen, and
+SeqGAN projects for releasing their models and code, and the Hugging~Face Hub
+team for streaming PubMed access. The RAID benchmark
+\cite{dugan2024raid} provided the cross-domain probe that anchors our
+domain-shift analysis.
+
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\end{document}

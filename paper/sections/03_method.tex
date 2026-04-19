@@ -1,0 +1,111 @@
+\section{Method}
+\label{sec:method}
+
+The BioShield pipeline has four interacting components: a real-text source
+(PubMed), two generators, a binary detector, and a rewriting agent. They are
+composed into a generic adversarial loop that any subset of components can
+inhabit, which is what enables our four-condition ablation.
+
+\subsection{Components}
+\label{ssec:components}
+
+\textbf{Real-text source.} We stream biomedical abstracts from
+\texttt{ncbi/pubmed} via the Hugging Face datasets API
+\cite{lhoest2021hfdatasets}. Sampling is uniform across years; abstracts
+shorter than 50 tokens are discarded.
+
+\textbf{Generator (Bio-family).} BioMistral-7B
+\cite{labrak2024biomistral} is a Mistral-7B \cite{jiang2023mistral} model
+continually pretrained on PubMed Central. We use it zero-shot, prompted
+with biomedical topic stubs and a structured-abstract instruction. Sampling
+uses temperature \(0.8\), top-\(p\) \(0.95\), and a maximum of \(384\)
+new tokens.
+
+\textbf{Generator (out-of-family baseline).} SeqGAN \cite{yu2017seqgan}
+trains a small LSTM generator with policy-gradient REINFORCE against a
+CNN-based discriminator. We pretrain SeqGAN on the same PubMed corpus that
+BioMistral saw and use it as the Condition~B fake source.
+
+\textbf{Detector.} We fine-tune
+\texttt{microsoft/BiomedNLP-BiomedBERT-large-uncased-abstract}
+\cite{gu2021biomedbert} (\(\sim\)340M parameters) as a binary
+real-vs-fake classifier with a single linear head over the
+\texttt{[CLS]} representation. Training uses bf16 mixed precision on
+Apple~MPS, batch size \(8\), learning rate \(2 \times 10^{-5}\) with
+linear decay and \(10\%\) warm-up, weight decay \(0.01\), and
+\(2\) epochs per round.
+
+\textbf{Agent (rewriter).} Qwen2.5-7B \cite{qwen2024technical} is used
+zero-shot as a rewriting agent. Given a fake abstract that the current
+detector found hard (probability of being real $\geq 0.5$), the agent
+produces a rewrite that ``reads more like a real PubMed abstract — keep
+the topic and the main claim, change the prose so it sounds like a
+biomedical reviewer wrote it.'' We do not fine-tune Qwen.
+
+\subsection{Adversarial Loop}
+\label{ssec:loop}
+
+Algorithm~\ref{alg:loop} formalises the general loop. The
+\textsc{Generate} step is component~(a): SeqGAN for Condition~B,
+BioMistral for Conditions~C and~D. The \textsc{HardSubset} and
+\textsc{Rewrite} steps are component~(b): present in C and D, absent in
+B. The \textsc{Retrain} step is component~(c): present in B and D,
+absent in A and C.
+
+\begin{algorithm}[t]
+\caption{BioShield adversarial loop}
+\label{alg:loop}
+\begin{algorithmic}[1]
+\REQUIRE Real corpus $\mathcal{R}$, generator $G$, detector $D_0$,
+agent $A$ (optional), rounds $T$, fake-pool size $K$, hard-fraction $h$
+\STATE $D \leftarrow D_0$  \COMMENT{baseline trained on
+$(\mathcal{R}, G(\cdot))$ once}
+\FOR{$r = 1, \dots, T$}
+  \STATE $\textsc{set\_seed}(\text{base} + r)$
+  \STATE $F_r \leftarrow \textsc{Generate}(G, K)$
+  \IF{agent enabled}
+    \STATE $H_r \leftarrow \textsc{HardSubset}(F_r, D, h)$
+    \STATE $F_r' \leftarrow \textsc{Rewrite}(A, H_r)$
+    \STATE $F_r \leftarrow (F_r \setminus H_r) \cup F_r'$
+  \ENDIF
+  \IF{retrain enabled}
+    \STATE $D \leftarrow \textsc{Retrain}(D, \mathcal{R}, F_r)$
+    \STATE $D \leftarrow \arg\max_{\text{epoch}} \mathrm{AUC}_{\text{val}}$
+    \COMMENT{best-val-AUC selection}
+  \ENDIF
+  \STATE record $(\mathrm{AUC}, F_1, \mathrm{evasion})_r$ on test set
+\ENDFOR
+\RETURN $D$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Hard-Subset Selection}
+We define a fake $x$ as ``hard'' for the current detector $D$ if
+$D(x) \geq 0.5$, i.e., the detector misclassifies it as real. With
+$h = 0.25$ and $K = 250$, the hard subset is the top-\(62\) fakes ranked by
+$D$'s real-probability score. Only this subset reaches the agent — the
+other \(188\) fakes are passed through unmodified. This keeps the
+agent budget small (\(\sim\!8\%\) of total wall-clock,
+Section~\ref{sec:setup}) while ensuring it spends compute where the
+detector is actually weak.
+
+\subsection{Checkpoint Selection}
+\label{ssec:checkpoint}
+After each retrain round, we keep the epoch checkpoint with the highest
+validation AUC. This is the silent default in most public implementations
+of adversarial-text training. We will show in Section~\ref{sec:discussion}
+that this choice is what produces the C\,$=$\,D pathology: when the
+baseline detector already hits the validation-AUC ceiling
+(\(0.9990\) on this corpus), no retrained checkpoint can replace it, so
+Condition~D's loop runs but never updates the deployed weights.
+
+\subsection{Reproducibility Controls}
+\label{ssec:repro}
+We fix the random seed (\texttt{base=42}) and call
+\texttt{set\_seed(42 + r)} at the top of every round so that round indices
+produce different fakes and rewrites without losing reproducibility. Mixed
+precision is forced to bf16 (Apple~MPS does not implement deterministic
+fp16 kernels). The detector architecture, hyperparameters, validation set,
+test set, agent prompt, and SeqGAN configuration are held constant across
+all four conditions; the only experimental variable is which steps of
+Algorithm~\ref{alg:loop} are enabled.

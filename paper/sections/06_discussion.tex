@@ -1,0 +1,136 @@
+\section{Discussion}
+\label{sec:discussion}
+
+We organise the discussion around the three negative findings, in
+descending order of how much they affect what other practitioners should
+do.
+
+\subsection{Generator-Family Identity Dominates Evasion}
+\label{ssec:family_disc}
+
+Across one detector architecture, one training corpus, and one held-out
+test set, evasion ranged from \(0.007\) (BioMistral fakes) to
+\(0.987\) (SeqGAN fakes) to \(0.983\) (RAID's mixed LLMs). Three
+points follow.
+
+\paragraph{The effect dwarfs everything else we measured.}
+Per-round evasion variation in Condition~B (\(0.993, 0.980, 0.987\))
+sits inside the \(\pm 0.062\) Wilson CI on \(n=250\); the
+between-condition retraining effect is therefore zero within noise. The
+agent-rewrite effect (\(\Delta_{\mathrm{evasion}} \approx 0.006\) between
+C-round-1 and C-round-3) is similarly inside CI. The
+between-generator-family effect (\(\Delta_{\mathrm{evasion}}
+\approx 0.98\)) is two orders of magnitude larger than either. If a
+practitioner is choosing where to invest engineering time, the lesson is
+unambiguous: \emph{the choice of fakes the detector trains against
+matters far more than how many adversarial rounds you run, or whether
+you wrap an LLM agent around the loop}.
+
+\paragraph{Why SeqGAN is so much harder.}
+SeqGAN produces text whose token-level distribution is far from the
+biomedical-English manifold the detector was pretrained on. This is
+visible in Condition~B's metric pattern: AUC remains acceptable
+(\(\approx 0.95\)), meaning the detector \emph{ranks} SeqGAN fakes
+above PubMed reals, but F1 collapses to \(0.65\), meaning the
+calibrated threshold lands in a region where most SeqGAN samples are
+called real. Two epochs of retraining per round do not move the
+threshold enough to recover, and from inspection of the per-round
+checkpoints they do not move the underlying decision surface either.
+This is consistent with the family-of-generators observation in
+Grover \cite{zellers2019defending}: the best detector for an
+out-of-family generator is often a detector that was \emph{also}
+trained on that family.
+
+\paragraph{Disclosure recommendation.}
+We argue that any deployed biomedical AI-text detector should publish a
+generator-family evasion matrix as part of its documentation, with at
+least one in-family LLM, one out-of-family LLM, and one non-LLM
+generator. Reporting only in-family AUC produces numbers that look
+near-perfect and are operationally meaningless if the deployment
+adversary uses any other generator.
+
+\subsection{The C\,$=$\,D Pathology and Best-Val-AUC Selection}
+\label{ssec:cd_path}
+
+Conditions~C and~D produced byte-identical test metrics across all three
+rounds. We diagnose this as an interaction between the detector's
+ability and the silent default of best-validation-AUC checkpoint
+selection.
+
+The Condition~A baseline detector reaches validation AUC \(0.9990\) —
+within \(\sim 0.001\) of the empirical ceiling on this corpus. In
+Condition~D, each retraining round computes the validation AUC of
+every epoch checkpoint and keeps the best. Because no retrained
+checkpoint can exceed the baseline's \(0.9990\), the selector keeps
+rolling back to the round-0 weights — i.e., to Condition~A's
+detector. Condition~D's loop \emph{runs}, generates fakes, computes
+hard subsets, calls the agent, and writes \(936\) new fakes to disk;
+none of that work updates the deployed detector.
+
+This is not a bug in our implementation. It is the expected behaviour
+of best-val-AUC selection when the baseline is at ceiling. The
+implication is that the metric one reports for ``the full pipeline''
+is actually the metric of a detector that no rewrite or retrain ever
+modified — an effect that, to our knowledge, is not flagged in the
+adversarial-text-training literature.
+
+\paragraph{Two ways out.}
+\begin{enumerate}[leftmargin=*]
+\item \emph{Adversarial-aware checkpoint selection}: keep the checkpoint
+  with the lowest evasion on a held-out adversarial pool, not the
+  highest validation AUC. This trades a small amount of clean-data
+  performance for measurable adversarial signal.
+\item \emph{Stronger generators}: an LLM that has been LoRA-fine-tuned
+  to actively evade the detector (e.g., DPO with detector logits as
+  reward) would push validation AUC below the baseline ceiling and
+  give retraining a non-zero gradient. Our flat
+  Condition~B curve suggests that without one of these two changes,
+  the loop has nothing to learn from at this scale.
+\end{enumerate}
+
+\subsection{Cross-Domain Brittleness}
+\label{ssec:domain_disc}
+
+RAID's biomedical slice exposes a calibration failure that the
+in-distribution metrics cleanly hide. AUC stays at \(0.82\), so the
+detector retains ranking ability across domains. Accuracy collapses to
+\(0.11\) and evasion shoots to \(0.983\), so its calibrated threshold
+is meaningless on RAID's mixed-LLM fakes. The qualitative pattern is
+the same brittleness reported by the RAID and MAGE papers; the
+quantitative shape (huge AUC--accuracy gap) is a useful signal for
+practitioners who only ever look at AUC.
+
+For the BioShield deployment story, this means we cannot honestly
+position the detector as a universal AI-text detector. We position it
+instead as a \emph{biomedical specialist} trained against the
+BioMistral family, with explicit cross-domain failure documented up
+front. Reviewers asking for cross-domain robustness should be pointed
+to the multi-family training proposal in Section~\ref{sec:limitations}.
+
+\subsection{Retraction of the 500-Scale ``Adversarial Training Works''
+Curve}
+\label{ssec:retraction}
+
+A previous version of this work, run at \(500\)-sample scale
+(\(250\) real \(+\) \(250\) BioMistral fake, fake-pool
+\(n = 250\) per round, test \(n = 100\)), reported a per-round
+evasion curve of \(0.74 \to 0.64 \to 0.54\) on Condition~B and
+interpreted it as evidence that 3-round adversarial retraining works
+against SeqGAN-style fakes. The narrative slide deck for that run
+opened with this number.
+
+At \(3{,}000\)-sample scale, with the same
+random seed, hyperparameters, and pipeline code, that curve does not
+reproduce. Per-round evasion is \(0.993, 0.980, 0.987\) — flat within
+the \(\pm 0.062\) Wilson CI on \(n = 250\). We retract the prior
+``adversarial training works'' claim and attribute the \(500\)-scale
+trend to small-sample noise: the per-round evasion sample is binary on
+\(n = 250\), giving an effective standard deviation of
+\(\sigma \approx 0.03\), which can produce a \(\Delta = 0.20\) drift
+across three rounds with non-trivial probability under the null.
+
+This is, in our reading, the most important methodological lesson of
+the project: \emph{adversarial training results at sub-thousand sample
+scale should be treated as exploratory, not load-bearing}, and any
+published evasion curve should disclose its sample size and the CI
+implied by it.

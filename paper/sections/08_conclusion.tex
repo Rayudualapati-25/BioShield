@@ -1,0 +1,38 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+We set out to test whether a 3-round adversarial retraining loop, with
+or without an LLM rewriting agent, can harden a BiomedBERT detector
+against AI-generated biomedical abstracts. On a controlled
+\(3{,}000\)-sample corpus, evaluated under fixed seeds and
+hyperparameters on a single Apple M3~Max laptop in
+\(10\,\mathrm{h}\,01\,\mathrm{m}\) of wall-clock, the answer is no — and
+the negative result is informative.
+
+Three findings stand out. First, the choice of \emph{generator family}
+explains roughly \(140\times\) more variance in evasion rate than the
+choice of retraining schedule or rewriting agent: BioMistral fakes evade
+at \(0.7\%\), SeqGAN fakes at \(98.7\%\), RAID's mixed LLMs at
+\(98.3\%\), all on the same detector. Second, three rounds of
+adversarial retraining produced no measurable improvement on either
+in-family (Condition~C, D) or out-of-family (Condition~B) fakes; the
+common best-validation-AUC checkpoint selector silently rolled
+Conditions~C and~D back to the baseline weights, which is the source of
+their byte-identical metrics. Third, a previous \(500\)-sample evasion
+curve of \(0.74 \to 0.54\) in Condition~B did not reproduce at
+\(3{,}000\) scale and is best explained as small-sample noise within the
+\(\pm 0.062\) Wilson CI on \(n = 250\).
+
+The actionable takeaways for downstream practitioners are concrete: any
+deployed AI-text detector should publish a
+generator-family evasion matrix as part of its documentation; the
+default best-validation-AUC checkpoint selector should be replaced by an
+adversarial-aware selector when the baseline is at ceiling; and
+sub-thousand-sample evasion claims should be treated as exploratory
+until they are replicated at a scale where Wilson CIs do not absorb the
+effect being claimed. We position BioShield as a biomedical specialist
+detector with documented cross-domain failure, release the full code,
+data, metrics, and one-command rerun script at
+\url{https://github.com/Rayudualapati-25/BioShield}, and treat the
+multi-seed replication, LoRA-hardened generator, and family-cross-check
+matrix as the highest-priority follow-ups for the paper revision.

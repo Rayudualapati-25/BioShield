@@ -1,0 +1,112 @@
+\section{Limitations and Future Work}
+\label{sec:limitations}
+
+We catalogue limitations explicitly so reviewers and downstream users can
+calibrate the results.
+
+\subsection{Limitations}
+
+\paragraph{Single random seed per run.}
+All four conditions and the RAID probe were evaluated under
+\texttt{base=42} with per-round \texttt{set\_seed(42 + r)}. The
+\(\pm 0.029\) Wilson half-width on test \(n=300\) bounds within-run
+variance, but does not bound run-to-run variance from re-seeding.
+Reported numbers should be read as point estimates; multi-seed
+replication is required for any confidence-interval claim across
+runs.
+
+\paragraph{Three-thousand-sample scale.}
+Test \(n=300\) produces a \(\pm 0.029\) CI half-width — wide enough that
+the C\,$=$\,A and D\,$=$\,A equivalences are formally ``not significantly
+different,'' rather than proven equal. A paper-grade replication should
+push to \(n=2{,}000\) (Wilson half-width \(\pm 0.011\)) before treating
+the C\,$=$\,D pathology claim as a tight finding.
+
+\paragraph{Single biomedical domain.}
+The detector is trained on PubMed and one biomedical-specialised LLM. We
+do not test on clinical notes (MIMIC-III, MIMIC-IV) or on biomedical
+preprints (bioRxiv, medRxiv). The cross-domain failure on RAID is
+suggestive but RAID itself is heterogeneous; a within-biomedical
+domain-shift study (PubMed-trained, MIMIC-tested) would tighten the
+domain-shift claim.
+
+\paragraph{Zero-shot generator and agent.}
+Both BioMistral-7B (the generator) and Qwen2.5-7B (the agent) are used
+zero-shot. A LoRA-fine-tuned version of either, trained against the
+detector's logits, would likely change the picture. We treat this as
+the most important pre-paper engineering investment
+(Section~\ref{ssec:future}).
+
+\paragraph{Best-validation-AUC checkpoint selection.}
+The C\,$=$\,D pathology is downstream of this design choice. We have not
+yet swept alternative selectors (best fake-pool evasion, best worst-case
+evasion across pools, average over the last $k$ epochs). A small grid
+sweep over selectors would convert our pathology observation into a
+quantitative recommendation.
+
+\paragraph{No human evaluation.}
+We do not include a blinded human reader study in this draft. Reviewers
+will reasonably want one; we plan a 50-sample blinded protocol
+(Section~\ref{ssec:future}).
+
+\paragraph{M4 cross-domain benchmark unavailable.}
+The \texttt{Chardonneret/M4} dataset \cite{wang2024m4} was removed from
+the Hugging~Face Hub between project start and this run. We log a
+graceful skip in \texttt{condition\_D\_m4\_metrics.json} and propose
+\texttt{Hello-SimpleAI/HC3} \cite{guo2023hc3} or
+\texttt{yaful/MAGE} \cite{li2024mage} as replacements for the paper
+revision.
+
+\paragraph{Transfer attack queued, not run.}
+A Llama-3.2-3B transfer attack is configured (model downloaded,
+inference verified) but the \(500\)-sample fake corpus is not yet
+generated. The completed family-cross-check matrix is the most
+significant missing experiment.
+
+\subsection{Future Work}
+\label{ssec:future}
+
+\paragraph{Pre-paper, this quarter.}
+\begin{enumerate}[leftmargin=*]
+\item \emph{Multi-seed replication.} Repeat the
+  \(3{,}000\)-sample run under three additional seeds
+  (\texttt{base} $\in \{43, 44, 45\}$) and report mean $\pm$ s.d.\
+  rather than point estimates.
+\item \emph{LoRA-hardened BioMistral.} Fine-tune BioMistral with DPO
+  using the detector's real-probability score as the negative reward.
+  Expected to break the validation-AUC ceiling and reactivate the
+  retraining gradient.
+\item \emph{Adversarial-aware checkpoint selector.} Replace
+  best-val-AUC with best-fake-pool-evasion; re-run Conditions~B and~D
+  end to end; report whether the C\,$=$\,D pathology dissolves.
+\item \emph{Llama-3.2-3B transfer attack.} Generate \(500\) Llama
+  fakes, score with Condition~A's detector, report a \(2\times 2\)
+  family-cross-check matrix (BioMistral, Llama, SeqGAN, RAID).
+\item \emph{Blinded human evaluation.} \(50\) abstracts (\(25\)
+  real + \(25\) BioMistral fake), \(3\) M.Tech-level domain readers,
+  per-reader and aggregated accuracy with Cohen's $\kappa$.
+\end{enumerate}
+
+\paragraph{Paper Tier~1 (peer-review defensible).}
+Increase scale to \(2{,}000\) real + \(2{,}000\) fake, \(3\) rounds
+$\times$ \(500\) per pool, test \(n=400\) (\(\pm 2.5\%\) CI). Wall-clock
+budget on M3~Max: $\sim$\(16\) hours (one overnight). With batched
+BioMistral generation (\texttt{batch\_size=4} in
+\texttt{train\_generator.py}) we estimate
+\(10\!-\!12\) hours.
+
+\paragraph{Paper Tier~2 (reviewer-proof).}
+Scale to \(10{,}000\) real + \(10{,}000\) fake, \(5\) rounds $\times$
+\(1{,}000\) per pool, test \(n=2{,}000\) (\(\pm 1.1\%\) CI), full
+family-cross-check matrix and human eval. Estimated wall-clock with
+batching: $\sim$\(40\!-\!65\) hours.
+
+\paragraph{Beyond the current pipeline.}
+Two longer-horizon directions are worth flagging. (i)~A multi-domain
+detector trained jointly on PubMed, MIMIC, and bioRxiv with
+domain-adversarial pretraining \cite{ganin2016dann} should help with
+cross-domain calibration. (ii)~A multi-family training corpus including
+SeqGAN-style fakes, BioMistral fakes, and at least one general-purpose
+LLM family (Llama, GPT) would convert the family-disclosure
+recommendation in Section~\ref{ssec:family_disc} from a measurement
+into a deployable defence.

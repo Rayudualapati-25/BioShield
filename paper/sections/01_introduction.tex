@@ -1,0 +1,73 @@
+\section{Introduction}
+\label{sec:introduction}
+
+Large language models (LLMs) can now generate biomedical research abstracts
+that are syntactically fluent, terminologically plausible, and difficult for
+non-experts to distinguish from real PubMed entries
+\cite{else2023chatgpt,liang2023gptdetect}. The downstream risks are concrete:
+fabricated abstracts can pollute citation databases, support fraudulent
+manuscripts, and amplify medical misinformation when they enter
+patient-facing search results \cite{majovsky2023artificialintelligence}. A
+biomedical-specific deepfake-text detector is therefore not a hypothetical
+need but a near-term tooling gap for journals, preprint servers, and
+clinical-information platforms.
+
+A recurring promise in the AI-text-detection literature is that
+\emph{adversarial training} — iteratively generating fakes, retraining the
+detector against them, and repeating — yields a more robust binary
+classifier \cite{zellers2019defending,gehrmann2019gltr,
+mitchell2023detectgpt}. We set out to test whether this promise survives a
+controlled, fully reproducible biomedical pipeline running on commodity
+hardware (a single Apple~M3~Max). Our pipeline pairs a
+\textbf{BiomedBERT-Large} detector \cite{gu2021biomedbert} with two
+generators (\textbf{BioMistral-7B} \cite{labrak2024biomistral} and
+\textbf{SeqGAN} \cite{yu2017seqgan}) and an LLM rewriting
+\textbf{agent} (\textbf{Qwen2.5-7B} \cite{qwen2024technical}) that targets
+the top-\(25\%\) hardest fakes per round. Four conditions isolate the
+contribution of each component (Section~\ref{sec:setup}).
+
+\textbf{Research questions.} We ask:
+\begin{itemize}
+\item \textbf{RQ1.} Does 3-round adversarial retraining lower the evasion
+  rate of a BiomedBERT detector against in-family fakes
+  (BioMistral)?
+\item \textbf{RQ2.} Does a Qwen2.5-7B rewriting agent meaningfully harden
+  the fake distribution beyond the zero-shot generator?
+\item \textbf{RQ3.} Does the resulting detector generalise to a
+  cross-domain mixed-LLM benchmark (RAID \cite{dugan2024raid})?
+\end{itemize}
+
+\textbf{Contributions.} We treat the answers — all of them negative — as the
+paper's contribution rather than an embarrassment to hide.
+\begin{enumerate}[leftmargin=*]
+\item \textbf{Generator-family dependence dominates.} Across one detector
+  and one test set, evasion ranges from \(0.7\%\) (BioMistral fakes) to
+  \(98.7\%\) (SeqGAN fakes) to \(98.3\%\) (RAID's mixed LLMs) — a
+  \(\sim\!100\times\) spread that dwarfs every other effect we measured.
+\item \textbf{Adversarial retraining produced no measurable improvement at
+  \(3\)k scale.} Condition~B's per-round evasion stayed at
+  \(0.993, 0.980, 0.987\) — within Wilson \(95\%\) CI noise on \(n=250\).
+  Conditions~C and~D produced byte-identical test metrics because the
+  best-validation-AUC checkpoint selector kept rolling back to the
+  baseline.
+\item \textbf{We retract a prior \(500\)-sample finding.} An earlier run
+  reported a \(0.74 \to 0.54\) evasion curve in Condition~B; with the
+  larger \(3\)k corpus and tighter CIs the curve disappears, and we now
+  attribute it to small-sample noise.
+\item \textbf{Cross-domain transfer is open.} A detector trained on
+  PubMed~+~BioMistral fails on RAID (accuracy \(0.11\), evasion \(0.983\)),
+  motivating future multi-family training rather than supporting any claim
+  of universal AI-text detection.
+\item \textbf{Reproducibility.} All code, data, metrics, plots, and a
+  one-command rerun script are released; the entire study costs
+  \(10\,\mathrm{h}\,01\,\mathrm{m}\) on a single laptop.
+\end{enumerate}
+
+\textbf{Paper organisation.} Section~\ref{sec:related} surveys
+machine-generated text detection, adversarial training for text classifiers,
+and LLM-as-agent rewriting. Section~\ref{sec:method} describes the BioShield
+pipeline. Section~\ref{sec:setup} details the four-condition ablation, data
+splits, and metrics. Section~\ref{sec:results} reports per-condition results
+and the RAID probe. Section~\ref{sec:discussion} owns the negative findings
+and explains the C\,$=$\,D pathology. Section~\ref{sec:limitations}
+catalogues limitations, and Section~\ref{sec:conclusion} closes.

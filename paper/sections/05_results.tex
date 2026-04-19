@@ -1,0 +1,182 @@
+\section{Results}
+\label{sec:results}
+
+We report results in three subsections that follow the four-condition
+ablation, the per-round retraining curves, and the cross-domain RAID
+probe. All confidence intervals are Wilson \(95\%\); the half-width is
+\(\pm 0.029\) at \(n = 300\) (test set) and \(\pm 0.062\) at
+\(n = 250\) (per-round fake pool).
+
+\subsection{Headline Comparison}
+\label{ssec:headline}
+
+Table~\ref{tab:headline} summarises the final-round metrics for each
+condition together with the RAID cross-domain evaluation.
+
+\begin{table*}[t]
+\caption{Final-round metrics (test \(n=300\), Wilson \(95\%\) CI half-width
+\(\pm 0.029\)) for the four conditions and the RAID cross-domain probe.
+Evasion is the fraction of fakes assigned probability $<0.5$ on each
+condition's final-round fake pool (\(n=250\), CI half-width \(\pm 0.062\)).
+RAID evasion is on its full fake split (\(n=181\)).}
+\label{tab:headline}
+\centering
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Condition} & \textbf{AUC} & \textbf{F1} & \textbf{Acc.} & \textbf{Evasion} \\
+\midrule
+A — static\_baseline      & 0.9997 & 0.9797 & 0.980 & --- \\
+B — seqgan\_only          & 0.9498 & 0.6546 & 0.490 & 0.987 \\
+C — agent\_only           & 0.9993 & 0.9797 & 0.980 & 0.007 \\
+D — full\_pipeline        & 0.9993 & 0.9797 & 0.980 & 0.007 \\
+\midrule
+RAID (cross-domain, A's detector)
+                          & 0.8171 & 0.176  & 0.110 & 0.983 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+Three readings:
+\begin{enumerate}[leftmargin=*]
+\item Conditions~A, C, and D form a tight cluster
+  (AUC \(\approx 0.9994\)) that is statistically indistinguishable on
+  \(n=300\). Condition~B is far below
+  (\(\Delta_{\mathrm{AUC}} \approx 0.05\), well outside the
+  \(\pm 0.029\) CI).
+\item Conditions~C and~D produce \emph{byte-identical} test metrics. We
+  diagnose this as a checkpoint-selection pathology in
+  Section~\ref{sec:discussion}.
+\item Evasion ranges from \(0.007\) to \(0.987\) on the same detector
+  family — a $\sim$\(140\times\) spread driven by which generator
+  produced the fakes.
+\end{enumerate}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{ablation_comparison.png}
+\caption{Side-by-side bar comparison across A/B/C/D and RAID. Tight
+A/C/D cluster on AUC and F1; Condition~B's collapse is driven by
+SeqGAN-style fakes that the detector ranks correctly (AUC \(\approx 0.95\))
+but cannot classify (F1 \(\approx 0.65\)). RAID is the right-most
+column; AUC is preserved at \(0.82\) but accuracy collapses to \(0.11\)
+because the threshold is wrong cross-domain.}
+\label{fig:ablation}
+\end{figure}
+
+\subsection{Per-Round Retraining Curves}
+\label{ssec:perround}
+
+Figure~\ref{fig:auc_f1} reports test AUC and F1 vs. round. Tables
+\ref{tab:b_perround} and \ref{tab:c_perround} report the corresponding
+per-round evasion on each condition's fake pool. Condition~D's per-round
+metrics are byte-identical to Condition~C's and are omitted.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{auc_f1_vs_round.png}
+\caption{Test AUC (top) and F1 (bottom) versus retraining round for
+Conditions B/C/D. Condition~B sits at the bottom of the AUC plot
+(\(\approx 0.949\) flat) and the bottom of the F1 plot
+(\(\approx 0.65\) flat). Conditions~C and~D track Condition~A's
+ceiling (\(\mathrm{AUC} \approx 0.999\), \(F_1 \approx 0.98\))
+across all three rounds.}
+\label{fig:auc_f1}
+\end{figure}
+
+\begin{table}[t]
+\caption{Condition~B per-round metrics. Test-set evasion is on
+\(n=300\); fake-pool evasion is on \(n=250\) per round. The
+fake-pool differences (\(\pm 0.013\)) are smaller than the
+\(\pm 0.062\) CI on \(n=250\); we therefore do not claim per-round
+improvement.}
+\label{tab:b_perround}
+\centering
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{@{}cccccc@{}}
+\toprule
+\textbf{Round} & \textbf{AUC} & \textbf{F1} & \textbf{Acc.} &
+\textbf{Test ev.} & \textbf{Pool ev.} \\
+\midrule
+1 & 0.9492 & 0.6532 & 0.487 & 0.953 & \textbf{0.993} \\
+2 & 0.9485 & 0.6561 & 0.493 & 0.947 & \textbf{0.980} \\
+3 & 0.9498 & 0.6546 & 0.490 & 0.953 & \textbf{0.987} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\caption{Condition~C per-round metrics. Condition~D is byte-identical
+because of the checkpoint-selection pathology
+(Section~\ref{sec:discussion}). The detector catches BioMistral fakes
+$> 99\%$ of the time even before any retraining round.}
+\label{tab:c_perround}
+\centering
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{@{}cccccc@{}}
+\toprule
+\textbf{Round} & \textbf{AUC} & \textbf{F1} & \textbf{Acc.} &
+\textbf{Test ev.} & \textbf{Pool ev.} \\
+\midrule
+1 & 0.9984 & 0.9764 & 0.977 & 0.013 & \textbf{0.013} \\
+2 & 0.9990 & 0.9797 & 0.980 & 0.007 & \textbf{0.007} \\
+3 & 0.9993 & 0.9797 & 0.980 & 0.007 & \textbf{0.007} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{evasion_rate_vs_round.png}
+\caption{Per-round evasion rate on each condition's fake pool. Condition~B
+is flat near the top of the chart at $\sim$\(99\%\); Conditions~C and~D
+track each other near the bottom at $\sim$\(0.7\%\). The vertical gap
+between the two curves is the generator-family effect we report; the
+within-curve variation is inside the \(\pm 0.062\) Wilson CI on
+\(n=250\) and we make no per-round claims about it.}
+\label{fig:evasion}
+\end{figure}
+
+\subsection{The Generator-Family View}
+\label{ssec:family}
+
+Re-organising the same numbers by generator family makes the dominant
+effect visible (Table~\ref{tab:family}).
+
+\begin{table}[t]
+\caption{Same detector family (BiomedBERT-Large), three generator
+families, three orders of magnitude difference in evasion. Each row is
+the final-round evasion rate on the corresponding fake source.}
+\label{tab:family}
+\centering
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lcl@{}}
+\toprule
+\textbf{Generator family} & \textbf{Evasion} & \textbf{Source} \\
+\midrule
+BioMistral-7B (zero-shot)        & 0.007 & Conditions C, D pool \\
+SeqGAN (LSTM + REINFORCE)        & 0.987 & Condition B pool \\
+Mixed LLMs (ChatGPT, GPT-4, \dots) & 0.983 & RAID benchmark \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A spread of $\sim$\(140\times\) within one detector and one test
+construction. Section~\ref{sec:discussion} argues that this is the
+single most important number in the paper, and that it should be a
+mandatory disclosure for any deployed AI-text detector.
+
+\subsection{Cross-Domain Probe (RAID)}
+\label{ssec:raid_results}
+
+The detector that scores AUC \(0.9997\) on its in-distribution test set
+scores AUC \(0.8171\) on RAID's biomedical slice
+(\(n = 200\); 19~real, 181~fake). Crucially, F1 collapses to \(0.176\)
+and accuracy to \(0.11\): the detector still ranks fakes above reals
+(positive AUC) but its decision threshold (\(0.5\) calibrated on
+PubMed~+~BioMistral) puts \(178\) of the \(181\) fakes on the
+``real'' side.
+
+This pattern — preserved AUC, collapsed accuracy — is consistent with the
+domain-shift literature: the model's ranking ability transfers, its
+calibration does not. We return to this in Section~\ref{sec:discussion}.

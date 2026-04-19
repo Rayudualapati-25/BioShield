@@ -1,0 +1,243 @@
+% =============================================================================
+% BioShield — references
+% First-draft bibliography. Entries are formatted for IEEEtran.
+% =============================================================================
+
+% --- Detection / MGT ----------------------------------------------------------
+@inproceedings{gehrmann2019gltr,
+  title     = {{GLTR}: Statistical Detection and Visualization of Generated Text},
+  author    = {Gehrmann, Sebastian and Strobelt, Hendrik and Rush, Alexander M.},
+  booktitle = {Proc. ACL System Demonstrations},
+  year      = {2019},
+  pages     = {111--116}
+}
+
+@inproceedings{zellers2019defending,
+  title     = {Defending Against Neural Fake News},
+  author    = {Zellers, Rowan and Holtzman, Ari and Rashkin, Hannah and Bisk, Yonatan and Farhadi, Ali and Roesner, Franziska and Choi, Yejin},
+  booktitle = {Proc. NeurIPS},
+  year      = {2019}
+}
+
+@inproceedings{mitchell2023detectgpt,
+  title     = {{DetectGPT}: Zero-Shot Machine-Generated Text Detection Using Probability Curvature},
+  author    = {Mitchell, Eric and Lee, Yoonho and Khazatsky, Alexander and Manning, Christopher D. and Finn, Chelsea},
+  booktitle = {Proc. ICML},
+  year      = {2023}
+}
+
+@misc{solaiman2019releasestrategies,
+  title         = {Release Strategies and the Social Impacts of Language Models},
+  author        = {Solaiman, Irene and Brundage, Miles and Clark, Jack and others},
+  year          = {2019},
+  eprint        = {1908.09203},
+  archivePrefix = {arXiv}
+}
+
+@misc{liang2023gptdetect,
+  title         = {{GPT} Detectors are Biased Against Non-Native English Writers},
+  author        = {Liang, Weixin and Yuksekgonul, Mert and Mao, Yining and Wu, Eric and Zou, James},
+  year          = {2023},
+  eprint        = {2304.02819},
+  archivePrefix = {arXiv}
+}
+
+@inproceedings{dugan2024raid,
+  title     = {{RAID}: A Shared Benchmark for Robust Evaluation of Machine-Generated Text Detectors},
+  author    = {Dugan, Liam and Hwang, Alyssa and Trhl{\'\i}k, Filip and Zhu, Andrew and Sweeney, Brendan and Singla, Sanjana and Callison-Burch, Chris},
+  booktitle = {Proc. ACL},
+  year      = {2024}
+}
+
+@inproceedings{li2024mage,
+  title     = {{MAGE}: Machine-Generated Text Detection in the Wild},
+  author    = {Li, Yafu and Li, Qintong and Cui, Leyang and Bi, Wei and Wang, Longyue and Yang, Linyi and Shi, Shuming and Zhang, Yue},
+  booktitle = {Proc. ACL},
+  year      = {2024}
+}
+
+@misc{guo2023hc3,
+  title         = {How Close is {ChatGPT} to Human Experts? Comparison Corpus, Evaluation, and Detection},
+  author        = {Guo, Biyang and Zhang, Xin and Wang, Ziyuan and Jiang, Minqi and Nie, Jinran and Ding, Yuxuan and Yue, Jianwei and Wu, Yupeng},
+  year          = {2023},
+  eprint        = {2301.07597},
+  archivePrefix = {arXiv}
+}
+
+@misc{wang2024m4,
+  title         = {{M4}: Multi-generator, Multi-domain, and Multi-lingual Black-Box Machine-Generated Text Detection},
+  author        = {Wang, Yuxia and Mansurov, Jonibek and Ivanov, Petar and Su, Jinyan and Shelmanov, Artem and Tsvigun, Akim and Whitehouse, Chenxi and Mohammed Afzal, Osama and Mahmoud, Tarek and Sasaki, Toru and Arnold, Thomas and Aji, Alham Fikri and Habash, Nizar and Gurevych, Iryna and Nakov, Preslav},
+  year          = {2024},
+  eprint        = {2305.14902},
+  archivePrefix = {arXiv}
+}
+
+% --- Adversarial training for text -------------------------------------------
+@inproceedings{yu2017seqgan,
+  title     = {{SeqGAN}: Sequence Generative Adversarial Nets with Policy Gradient},
+  author    = {Yu, Lantao and Zhang, Weinan and Wang, Jun and Yu, Yong},
+  booktitle = {Proc. AAAI},
+  year      = {2017}
+}
+
+@inproceedings{morris2020textattack,
+  title     = {{TextAttack}: A Framework for Adversarial Attacks, Data Augmentation, and Adversarial Training in {NLP}},
+  author    = {Morris, John X. and Lifland, Eli and Yoo, Jin Yong and Grigsby, Jake and Jin, Di and Qi, Yanjun},
+  booktitle = {Proc. EMNLP System Demonstrations},
+  year      = {2020}
+}
+
+@inproceedings{jin2020textfooler,
+  title     = {Is {BERT} Really Robust? A Strong Baseline for Natural Language Attack on Text Classification and Entailment},
+  author    = {Jin, Di and Jin, Zhijing and Zhou, Joey Tianyi and Szolovits, Peter},
+  booktitle = {Proc. AAAI},
+  year      = {2020}
+}
+
+@inproceedings{li2020bertattack,
+  title     = {{BERT-ATTACK}: Adversarial Attack Against {BERT} Using {BERT}},
+  author    = {Li, Linyang and Ma, Ruotian and Guo, Qipeng and Xue, Xiangyang and Qiu, Xipeng},
+  booktitle = {Proc. EMNLP},
+  year      = {2020}
+}
+
+@misc{ouyang2022rlhf,
+  title         = {Training Language Models to Follow Instructions with Human Feedback},
+  author        = {Ouyang, Long and Wu, Jeff and Jiang, Xu and others},
+  year          = {2022},
+  eprint        = {2203.02155},
+  archivePrefix = {arXiv}
+}
+
+@inproceedings{rafailov2023dpo,
+  title     = {Direct Preference Optimization: Your Language Model is Secretly a Reward Model},
+  author    = {Rafailov, Rafael and Sharma, Archit and Mitchell, Eric and Manning, Christopher D. and Ermon, Stefano and Finn, Chelsea},
+  booktitle = {Proc. NeurIPS},
+  year      = {2023}
+}
+
+% --- LLM-as-agent and red-teaming --------------------------------------------
+@inproceedings{perez2022redteaming,
+  title     = {Red Teaming Language Models with Language Models},
+  author    = {Perez, Ethan and Huang, Saffron and Song, Francis and Cai, Trevor and Ring, Roman and Aslanides, John and Glaese, Amelia and McAleese, Nat and Irving, Geoffrey},
+  booktitle = {Proc. EMNLP},
+  year      = {2022}
+}
+
+@misc{ganguli2022redteaming,
+  title         = {Red Teaming Language Models to Reduce Harms: Methods, Scaling Behaviors, and Lessons Learned},
+  author        = {Ganguli, Deep and Lovitt, Liane and Kernion, Jackson and others},
+  year          = {2022},
+  eprint        = {2209.07858},
+  archivePrefix = {arXiv}
+}
+
+@misc{chao2024jailbreaking,
+  title         = {Jailbreaking Black Box Large Language Models in Twenty Queries},
+  author        = {Chao, Patrick and Robey, Alexander and Dobriban, Edgar and Hassani, Hamed and Pappas, George J. and Wong, Eric},
+  year          = {2024},
+  eprint        = {2310.08419},
+  archivePrefix = {arXiv}
+}
+
+@misc{liu2023autodan,
+  title         = {{AutoDAN}: Generating Stealthy Jailbreak Prompts on Aligned Large Language Models},
+  author        = {Liu, Xiaogeng and Xu, Nan and Chen, Muhao and Xiao, Chaowei},
+  year          = {2023},
+  eprint        = {2310.04451},
+  archivePrefix = {arXiv}
+}
+
+@misc{mehrotra2024toa,
+  title         = {Tree of Attacks: Jailbreaking Black-Box {LLMs} Automatically},
+  author        = {Mehrotra, Anay and Zampetakis, Manolis and Kassianik, Paul and Nelson, Blaine and Anderson, Hyrum and Singer, Yaron and Karbasi, Amin},
+  year          = {2024},
+  eprint        = {2312.02119},
+  archivePrefix = {arXiv}
+}
+
+@inproceedings{krishna2023paraphrasing,
+  title     = {Paraphrasing Evades Detectors of {AI}-Generated Text, but Retrieval is an Effective Defense},
+  author    = {Krishna, Kalpesh and Song, Yixiao and Karpinska, Marzena and Wieting, John and Iyyer, Mohit},
+  booktitle = {Proc. NeurIPS},
+  year      = {2023}
+}
+
+@inproceedings{sadasivan2024aigeneratedtext,
+  title     = {Can {AI}-Generated Text Be Reliably Detected?},
+  author    = {Sadasivan, Vinu Sankar and Kumar, Aounon and Balasubramanian, Sriram and Wang, Wenxiao and Feizi, Soheil},
+  booktitle = {Proc. ICML},
+  year      = {2024}
+}
+
+% --- Models we use -----------------------------------------------------------
+@article{gu2021biomedbert,
+  title   = {Domain-Specific Language Model Pretraining for Biomedical Natural Language Processing},
+  author  = {Gu, Yu and Tinn, Robert and Cheng, Hao and Lucas, Michael and Usuyama, Naoto and Liu, Xiaodong and Naumann, Tristan and Gao, Jianfeng and Poon, Hoifung},
+  journal = {ACM Transactions on Computing for Healthcare},
+  volume  = {3},
+  number  = {1},
+  pages   = {1--23},
+  year    = {2021}
+}
+
+@misc{labrak2024biomistral,
+  title         = {{BioMistral}: A Collection of Open-Source Pretrained Large Language Models for Medical Domains},
+  author        = {Labrak, Yanis and Bazoge, Adrien and Morin, Emmanuel and Gourraud, Pierre-Antoine and Rouvier, Mickael and Dufour, Richard},
+  year          = {2024},
+  eprint        = {2402.10373},
+  archivePrefix = {arXiv}
+}
+
+@misc{jiang2023mistral,
+  title         = {{Mistral} {7B}},
+  author        = {Jiang, Albert Q. and Sablayrolles, Alexandre and Mensch, Arthur and others},
+  year          = {2023},
+  eprint        = {2310.06825},
+  archivePrefix = {arXiv}
+}
+
+@misc{qwen2024technical,
+  title         = {{Qwen2.5} Technical Report},
+  author        = {{Qwen Team}},
+  year          = {2024},
+  eprint        = {2412.15115},
+  archivePrefix = {arXiv}
+}
+
+% --- Tooling and data --------------------------------------------------------
+@inproceedings{lhoest2021hfdatasets,
+  title     = {Datasets: A Community Library for Natural Language Processing},
+  author    = {Lhoest, Quentin and Villanova del Moral, Albert and Jernite, Yacine and Thakur, Abhishek and von Platen, Patrick and others},
+  booktitle = {Proc. EMNLP System Demonstrations},
+  year      = {2021}
+}
+
+% --- Domain shift, biomedical misuse ----------------------------------------
+@article{else2023chatgpt,
+  title   = {Abstracts Written by {ChatGPT} Fool Scientists},
+  author  = {Else, Holly},
+  journal = {Nature},
+  volume  = {613},
+  pages   = {423},
+  year    = {2023}
+}
+
+@article{majovsky2023artificialintelligence,
+  title   = {Artificial Intelligence Can Generate Fraudulent but Authentic-Looking Scientific Medical Articles: {Pandora's} Box Has Been Opened},
+  author  = {Majovsky, Martin and Cerny, Martin and Kasal, Matej and Komarc, Martin and Netuka, David},
+  journal = {Journal of Medical Internet Research},
+  volume  = {25},
+  pages   = {e46924},
+  year    = {2023}
+}
+
+@article{ganin2016dann,
+  title   = {Domain-Adversarial Training of Neural Networks},
+  author  = {Ganin, Yaroslav and Ustinova, Evgeniya and Ajakan, Hana and Germain, Pascal and Larochelle, Hugo and Laviolette, Fran\c{c}ois and Marchand, Mario and Lempitsky, Victor},
+  journal = {Journal of Machine Learning Research},
+  volume  = {17},
+  number  = {59},
+  pages   = {1--35},
+  year    = {2016}
+}

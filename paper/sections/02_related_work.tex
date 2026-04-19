@@ -1,0 +1,70 @@
+\section{Related Work}
+\label{sec:related}
+
+We organise prior work into three threads that BioShield draws on directly:
+machine-generated text (MGT) detection, adversarial training for text
+classifiers, and LLM-as-agent rewriting.
+
+\subsection{Machine-Generated Text Detection}
+Early MGT detectors relied on stylometric and surface-statistical signals.
+GLTR \cite{gehrmann2019gltr} visualises token-level rank statistics from a
+language model to surface unusually probable continuations. Grover
+\cite{zellers2019defending} trained a discriminator jointly with a generative
+news LM and showed that the best detector for a given LM is often a model
+of the same family — an observation we revisit at biomedical scale.
+DetectGPT \cite{mitchell2023detectgpt} and zero-shot likelihood-perturbation
+methods exploit the curvature of the source LM's likelihood landscape.
+RoBERTa-based supervised detectors \cite{solaiman2019releasestrategies} remain
+the most widely deployed baseline, including the GPT-2 output detector and
+its biomedical-domain descendants \cite{liang2023gptdetect}. Recent
+benchmarks RAID \cite{dugan2024raid} and MAGE \cite{li2024mage} show
+that almost all such detectors collapse on out-of-distribution generators,
+which our cross-domain RAID probe confirms.
+
+\subsection{Adversarial Training for Text Classifiers}
+Adversarial training in NLP spans two distinct families. \emph{Sample-level}
+attacks such as TextAttack \cite{morris2020textattack},
+TextFooler \cite{jin2020textfooler}, and BERT-Attack
+\cite{li2020bertattack} perturb individual tokens or sentences against a
+fixed classifier. \emph{Generator-level} adversarial training instead
+trains a generator alongside the classifier; SeqGAN \cite{yu2017seqgan}
+remains the canonical baseline using policy-gradient REINFORCE. More recent
+work on RL-tuned generators \cite{ouyang2022rlhf} and DPO-style preference
+optimisation \cite{rafailov2023dpo} suggests that hardening generators via
+explicit reward signals is more effective than the SeqGAN regime — which
+our flat Condition~B curve indirectly supports.
+
+A practical question that this literature largely sidesteps is
+\emph{checkpoint selection}: when retraining yields a sequence of detector
+weights with comparable validation metrics, which checkpoint is shipped?
+Best-validation-AUC selection is the silent default in most public
+implementations. Our Section~\ref{sec:discussion} demonstrates that this
+default actively hides retraining signal when the baseline is already at
+ceiling, producing the C\,$=$\,D pathology we report.
+
+\subsection{LLM-as-Agent Rewriting and Red-Teaming}
+LLMs are increasingly used as \emph{agents} that probe and harden classifiers
+by paraphrase or rewrite \cite{perez2022redteaming,ganguli2022redteaming}.
+PAIR \cite{chao2024jailbreaking}, AutoDAN \cite{liu2023autodan}, and Tree of
+Attacks \cite{mehrotra2024toa} apply this idea to safety classifiers.
+Closer to our setting, recent work uses GPT-4 or open-weight LLMs to
+paraphrase machine-generated essays until they evade detection
+\cite{krishna2023paraphrasing,sadasivan2024aigeneratedtext}. Our agent
+loop instantiates the same idea with Qwen2.5-7B as the rewriter and the
+top-25\% hardest fakes from the prior round as the agent's input. The
+near-zero evasion gain we observe (Condition~C vs. Condition~A) is
+consistent with the negative scaling result in
+\cite{sadasivan2024aigeneratedtext} that paraphrase-based attacks plateau
+when the source generator is already in-family for the detector.
+
+\subsection{Position of BioShield}
+BioShield's contribution is not a new architecture or attack. It is a
+controlled, fully reproducible \emph{biomedical-domain} measurement of how
+much of the evasion-rate signal in published detector papers can be
+attributed to (a)~the choice of generator family, (b)~retraining rounds, and
+(c)~rewrite agents — and the answer, at \(3\)k scale, is that (a)~dominates
+by two orders of magnitude over (b) and (c). This complements the
+cross-domain failure mode reported by RAID \cite{dugan2024raid} and MAGE
+\cite{li2024mage} with an in-domain explanation for why the same detector
+can look near-perfect or near-useless depending on which generator the
+reviewer probes it with.

@@ -1,0 +1,116 @@
+% =============================================================================
+% BioShield — IEEE Conference Paper (first draft)
+%
+% Title: BioShield: A Negative Result on Adversarial Retraining for Biomedical
+%        AI-Text Detection Under Generator-Family Shift
+%
+% Author: Venkata Rayudu Alapati  (M.Tech AI/ML, AP25122040029)
+% Date  : April 2026
+% =============================================================================
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{siunitx}
+\usepackage{url}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!50!black,
+  citecolor=blue!50!black,
+  urlcolor=blue!50!black
+}
+
+\graphicspath{{figures/}}
+
+\begin{document}
+
+\title{BioShield: A Negative Result on Adversarial Retraining for Biomedical AI-Text Detection Under Generator-Family Shift}
+
+\author{
+\IEEEauthorblockN{Venkata Rayudu Alapati}
+\IEEEauthorblockA{
+M.Tech, Department of Computer Science and Engineering\\
+SRM University, Andhra Pradesh, India\\
+Student ID: AP25122040029\\
+Email: alapativenkatarayudu@gmail.com}
+}
+
+\maketitle
+
+\begin{abstract}
+We study whether a 3-round adversarial retraining loop can harden a biomedical
+text deepfake detector against AI-generated abstracts. Our pipeline combines
+(i)~a BiomedBERT-Large detector, (ii)~a BioMistral-7B zero-shot generator and a
+SeqGAN baseline, and (iii)~a Qwen2.5-7B rewriting agent that targets the
+top-25\% hardest fakes per round. We evaluate four conditions in a controlled
+ablation on \(1{,}500\) real PubMed abstracts and \(1{,}500\) BioMistral fakes
+(test \(n=300\), Wilson 95\% CI \(\pm 2.9\) percentage points), plus a RAID
+cross-domain probe. Three findings emerge. \textbf{First}, generator-family
+identity dominates evasion behaviour: SeqGAN fakes evade at \(98.7\%\),
+BioMistral fakes at \(0.7\%\), and RAID's mixed-LLM corpus at \(98.3\%\) — a
+roughly \(100\times\) spread on the same detector. \textbf{Second}, three
+rounds of adversarial retraining did not measurably help at this scale:
+condition~B's evasion stayed flat (\(0.993 \to 0.980 \to 0.987\), within Monte
+Carlo noise on \(n=250\)), and conditions~C and~D produced byte-identical
+metrics because best-validation-AUC checkpointing rolled back to the round-0
+baseline (validation AUC ceiling \(0.9990\) was unreachable by retraining).
+\textbf{Third}, the detector did not transfer cross-domain (RAID accuracy
+\(0.11\), evasion \(0.983\)). We argue that (a)~published biomedical detectors
+must disclose the generator family they were trained against, (b)~best-val-AUC
+checkpoint selection silently hides retraining signal when the baseline is
+already at ceiling, and (c)~a previously reported \(0.74 \to 0.54\) evasion
+curve at \(500\)-sample scale was likely small-sample noise that did not
+reproduce at \(3\)k. We position BioShield as a biomedical specialist and
+treat the negative results as the paper's primary contribution.
+\end{abstract}
+
+\begin{IEEEkeywords}
+AI-generated text detection, biomedical NLP, adversarial training,
+SeqGAN, large language model rewriting agents, domain generalization,
+BiomedBERT, negative results, reproducibility.
+\end{IEEEkeywords}
+
+\input{sections/01_introduction}
+\input{sections/02_related_work}
+\input{sections/03_method}
+\input{sections/04_experimental_setup}
+\input{sections/05_results}
+\input{sections/06_discussion}
+\input{sections/07_limitations_future_work}
+\input{sections/08_conclusion}
+
+\section*{Reproducibility Statement}
+All code, configuration files, per-round metric JSONs, plots, and the
+\(3{,}000\)-sample data manifest are released at
+\url{https://github.com/Rayudualapati-25/BioShield}. The complete
+\(10\,\mathrm{h}\,01\,\mathrm{m}\) pipeline reproduces with
+\texttt{bash scripts/run\_presentation.sh} on a single Apple~M3~Max~64\,GB
+machine. Random seeds (\texttt{base=42}, per-round
+\texttt{set\_seed(42+r)}), bf16 dtype, and the
+\texttt{microsoft/BiomedNLP-BiomedBERT-large} checkpoint are fixed across
+conditions; the only variable is training data.
+
+\section*{Acknowledgment}
+The author thanks the maintainers of the BioMistral, BiomedBERT, Qwen, and
+SeqGAN projects for releasing their models and code, and the Hugging~Face Hub
+team for streaming PubMed access. The RAID benchmark
+\cite{dugan2024raid} provided the cross-domain probe that anchors our
+domain-shift analysis.
+
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\end{document}

@@ -38,11 +38,13 @@ the most important pre-paper engineering investment
 (Section~\ref{ssec:future}).
 
 \paragraph{Best-validation-AUC checkpoint selection.}
-The C\,$=$\,D pathology is downstream of this design choice. We have not
-yet swept alternative selectors (best fake-pool evasion, best worst-case
-evasion across pools, average over the last $k$ epochs). A small grid
-sweep over selectors would convert our pathology observation into a
-quantitative recommendation.
+The C\,$=$\,D pathology is downstream of this design choice. We implement
+an adversarial-aware selector (\texttt{--checkpoint\_selector adversarial}
+in \texttt{training/adversarial\_loop.py}) that promotes the epoch with the
+lowest fake-pool evasion rather than highest val-AUC
+(Section~\ref{ssec:ckpt_adv}). A quantitative comparison of
+selectors — sweeping best-pool-evasion, worst-case evasion across pools, and
+average over the last $k$ epochs — remains future work.
 
 \paragraph{No human evaluation.}
 We do not include a blinded human reader study in this draft. Reviewers
@@ -57,11 +59,21 @@ graceful skip in \texttt{condition\_D\_m4\_metrics.json} and propose
 \texttt{yaful/MAGE} \cite{li2024mage} as replacements for the paper
 revision.
 
-\paragraph{Transfer attack queued, not run.}
-A Llama-3.2-3B transfer attack is configured (model downloaded,
-inference verified) but the \(500\)-sample fake corpus is not yet
-generated. The completed family-cross-check matrix is the most
-significant missing experiment.
+\paragraph{Multi-family training pending full-scale run.}
+Condition~E (\texttt{models/detector/train\_multi\_family.py}) trains
+on a BioMistral~+~SeqGAN~+~Llama mixed corpus and is designed to
+compress the \(\sim\!140\times\) evasion spread. The implementation is
+complete; full-scale \(3\)k results are not yet available. A
+Llama-3.2-3B-only transfer attack (the $2\times 2$ family-cross-check matrix)
+is the highest-priority missing experiment for the next revision.
+
+\paragraph{Post-hoc calibration deployed but not yet evaluated at scale.}
+Temperature scaling (\texttt{evaluation/calibration.py}) is implemented and
+applies to Condition~A's detector on the RAID probe. The calibrated threshold
+\(\theta^*\) is expected to close the AUC--accuracy gap
+(Section~\ref{ssec:calibration_fix}), but a full quantitative comparison
+with the uncalibrated baseline requires a held-out calibration split that
+is not included in the current \(3\)k corpus.
 
 \subsection{Future Work}
 \label{ssec:future}
@@ -76,12 +88,19 @@ significant missing experiment.
   using the detector's real-probability score as the negative reward.
   Expected to break the validation-AUC ceiling and reactivate the
   retraining gradient.
-\item \emph{Adversarial-aware checkpoint selector.} Replace
-  best-val-AUC with best-fake-pool-evasion; re-run Conditions~B and~D
-  end to end; report whether the C\,$=$\,D pathology dissolves.
-\item \emph{Llama-3.2-3B transfer attack.} Generate \(500\) Llama
-  fakes, score with Condition~A's detector, report a \(2\times 2\)
-  family-cross-check matrix (BioMistral, Llama, SeqGAN, RAID).
+\item \emph{Adversarial-aware checkpoint selector — re-run.}
+  \texttt{--checkpoint\_selector adversarial} is implemented
+  (Section~\ref{ssec:ckpt_adv}). The immediate priority is to re-run
+  Conditions~B and~D end to end with the new selector and report
+  whether the C\,$=$\,D pathology quantitatively dissolves.
+\item \emph{Condition~E full-scale run.} Run
+  \texttt{train\_multi\_family.py} at \(3\)k scale; report the complete
+  $3\times 3$ evasion matrix (BioMistral, Llama, SeqGAN) for Conditions
+  A and E; confirm the predicted evasion-spread compression.
+\item \emph{Calibration evaluation.} Evaluate
+  \texttt{evaluation/calibration.py} with a held-out calibration split;
+  report pre- and post-calibration accuracy on RAID and quantify the
+  AUC--accuracy gap closure.
 \item \emph{Blinded human evaluation.} \(50\) abstracts (\(25\)
   real + \(25\) BioMistral fake), \(3\) M.Tech-level domain readers,
   per-reader and aggregated accuracy with Cohen's $\kappa$.

@@ -96,9 +96,9 @@ in-distribution metrics cleanly hide. AUC stays at \(0.82\), so the
 detector retains ranking ability across domains. Accuracy collapses to
 \(0.11\) and evasion shoots to \(0.983\), so its calibrated threshold
 is meaningless on RAID's mixed-LLM fakes. The qualitative pattern is
-the same brittleness reported by the RAID and MAGE papers; the
-quantitative shape (huge AUC--accuracy gap) is a useful signal for
-practitioners who only ever look at AUC.
+the same brittleness reported by RAID~\cite{dugan2024raid} and
+MAGE~\cite{li2024mage}; the quantitative shape (huge AUC--accuracy gap)
+is a useful signal for practitioners who only ever look at AUC.
 
 For the BioShield deployment story, this means we cannot honestly
 position the detector as a universal AI-text detector. We position it
@@ -106,6 +106,21 @@ instead as a \emph{biomedical specialist} trained against the
 BioMistral family, with explicit cross-domain failure documented up
 front. Reviewers asking for cross-domain robustness should be pointed
 to the multi-family training proposal in Section~\ref{sec:limitations}.
+
+\subsection{Calibration as a Cross-Domain Fix}
+\label{ssec:calibration_fix}
+
+The AUC--accuracy gap on RAID has a straightforward post-hoc remedy:
+temperature scaling~\cite{guo2017calibration} fits a single scalar \(T\)
+on a held-out calibration set (e.g., the validation split) so that
+$p_{\text{cal}} = \mathrm{softmax}(\mathrm{logits}/T)$. When \(T > 1\)
+the model is over-confident; scaling moves probabilities toward 0.5 and
+recalibrates the threshold. We implement this in
+\texttt{evaluation/calibration.py}, which additionally sweeps the threshold
+grid on the calibration set to find the $\theta^*$ that maximises
+validation \(F_1\). Even without retraining, replacing the fixed
+\(\theta = 0.5\) threshold with $\theta^*$ can meaningfully close the
+accuracy gap on cross-domain data.
 
 \subsection{Retraction of the 500-Scale ``Adversarial Training Works''
 Curve}

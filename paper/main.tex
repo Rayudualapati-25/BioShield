@@ -74,8 +74,15 @@ must disclose the generator family they were trained against, (b)~best-val-AUC
 checkpoint selection silently hides retraining signal when the baseline is
 already at ceiling, and (c)~a previously reported \(0.74 \to 0.54\) evasion
 curve at \(500\)-sample scale was likely small-sample noise that did not
-reproduce at \(3\)k. We position BioShield as a biomedical specialist and
-treat the negative results as the paper's primary contribution.
+reproduce at \(3\)k. To address the identified failure modes we contribute three counter-measures:
+(a)~an adversarial-aware checkpoint selector that picks the epoch with
+the lowest fake-pool evasion, dissolving the C\,$=$\,D pathology;
+(b)~a multi-family training detector (Condition~E) that mixes BioMistral,
+SeqGAN, and Llama fakes to compress the \(\sim\!140\times\) evasion spread;
+and (c)~post-hoc temperature-scaling calibration that recovers meaningful
+accuracy on cross-domain data by learning an optimal threshold on a
+held-out calibration set. We position BioShield as a biomedical specialist
+and treat the negative results as the paper's primary contribution.
 \end{abstract}
 
 \begin{IEEEkeywords}

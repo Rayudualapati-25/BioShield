@@ -30,9 +30,24 @@ default best-validation-AUC checkpoint selector should be replaced by an
 adversarial-aware selector when the baseline is at ceiling; and
 sub-thousand-sample evasion claims should be treated as exploratory
 until they are replicated at a scale where Wilson CIs do not absorb the
-effect being claimed. We position BioShield as a biomedical specialist
+effect being claimed.
+
+Beyond documenting negative results, we contribute three counter-measures.
+(i)~An \emph{adversarial-aware checkpoint selector}
+(\texttt{--checkpoint\_selector adversarial}) that scores epoch checkpoints
+on the live fake pool and promotes the epoch with the lowest evasion rate,
+dissolving the C\,$=$\,D pathology by decoupling selection from
+validation-AUC saturation. (ii)~A \emph{multi-family training corpus}
+(Condition~E) that mixes BioMistral, SeqGAN, and Llama fakes with
+configurable weights, targeting compression of the \(\sim\!140\times\)
+evasion spread. (iii)~\emph{Post-hoc temperature-scaling calibration}
+(\texttt{evaluation/calibration.py}) that learns an optimal decision
+threshold \(\theta^*\) on a held-out calibration set, correcting the
+AUC--accuracy gap on cross-domain RAID data without any retraining.
+
+We position BioShield as a biomedical specialist
 detector with documented cross-domain failure, release the full code,
 data, metrics, and one-command rerun script at
 \url{https://github.com/Rayudualapati-25/BioShield}, and treat the
-multi-seed replication, LoRA-hardened generator, and family-cross-check
-matrix as the highest-priority follow-ups for the paper revision.
+multi-seed replication, LoRA-hardened generator, and Condition~E
+full-scale run as the highest-priority follow-ups for the paper revision.

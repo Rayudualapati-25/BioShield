@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__claude_ai_Hugging_Face__paper_search"
+    ]
+  }
+}

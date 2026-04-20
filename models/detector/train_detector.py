@@ -8,6 +8,7 @@ CLI:
     python models/detector/train_detector.py --config configs/config_novel.yaml --mode baseline
     python models/detector/train_detector.py --config configs/config_novel.yaml --mode retrain --resume <ckpt>
 """
+
 from __future__ import annotations
 
 import argparse
@@ -106,7 +107,11 @@ def eval_split(model, loader, device, criterion) -> dict[str, float]:
     labels_np = np.asarray(labels)
     probs_np = np.asarray(probs)
     try:
-        auc = roc_auc_score(labels_np, probs_np) if len(set(labels_np)) > 1 else float("nan")
+        auc = (
+            roc_auc_score(labels_np, probs_np)
+            if len(set(labels_np)) > 1
+            else float("nan")
+        )
     except ValueError:
         auc = float("nan")
     f1 = f1_score(labels_np, preds, zero_division=0)
@@ -120,7 +125,9 @@ def eval_split(model, loader, device, criterion) -> dict[str, float]:
     }
 
 
-def train_one_epoch(model, loader, optimizer, criterion, device, log_every: int = 50) -> float:
+def train_one_epoch(
+    model, loader, optimizer, criterion, device, log_every: int = 50
+) -> float:
     model.train()
     running = 0.0
     n = 0
@@ -137,16 +144,27 @@ def train_one_epoch(model, loader, optimizer, criterion, device, log_every: int 
         running += float(loss.item()) * y.size(0)
         n += y.size(0)
         if step % log_every == 0:
-            LOG.info("step=%d loss=%.4f mem=%.2fGB", step, loss.item(), allocated_memory_gb(device))
+            LOG.info(
+                "step=%d loss=%.4f mem=%.2fGB",
+                step,
+                loss.item(),
+                allocated_memory_gb(device),
+            )
     return running / max(n, 1)
 
 
-def save_checkpoint(path: Path, model, tokenizer, optimizer, epoch: int, best_metric: float) -> None:
+def save_checkpoint(
+    path: Path, model, tokenizer, optimizer, epoch: int, best_metric: float
+) -> None:
     path.mkdir(parents=True, exist_ok=True)
     model.save_pretrained(path)
     tokenizer.save_pretrained(path)
     torch.save(
-        {"epoch": epoch, "best_metric": best_metric, "optimizer": optimizer.state_dict()},
+        {
+            "epoch": epoch,
+            "best_metric": best_metric,
+            "optimizer": optimizer.state_dict(),
+        },
         path / "training_state.pt",
     )
 
@@ -155,9 +173,34 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True)
     parser.add_argument("--mode", choices=["baseline", "retrain"], default="baseline")
-    parser.add_argument("--resume", default=None, help="Path to checkpoint dir when mode=retrain")
-    parser.add_argument("--label", default=None, help="Suffix for metrics file (e.g. condition_A)")
+    parser.add_argument(
+        "--resume", default=None, help="Path to checkpoint dir when mode=retrain"
+    )
+    parser.add_argument(
+        "--label", default=None, help="Suffix for metrics file (e.g. condition_A)"
+    )
+    parser.add_argument(
+        "--checkpoint_selector",
+        choices=["val_auc", "adversarial"],
+        default="val_auc",
+        help=(
+            "val_auc (default): keep epoch with highest validation AUC. "
+            "adversarial: keep epoch with lowest evasion_rate on --fake_pool_csv. "
+            "Fixes the C=D pathology when the val-AUC ceiling is already hit."
+        ),
+    )
+    parser.add_argument(
+        "--fake_pool_csv",
+        default=None,
+        help="CSV of fake samples used for adversarial checkpoint selection (required when "
+        "--checkpoint_selector adversarial).",
+    )
     args = parser.parse_args()
+
+    if args.checkpoint_selector == "adversarial" and not args.fake_pool_csv:
+        parser.error(
+            "--fake_pool_csv is required when --checkpoint_selector adversarial"
+        )
 
     cfg = load_config(args.config)
     ensure_dirs(cfg)
@@ -178,15 +221,20 @@ def main() -> None:
 
     if args.resume:
         LOG.info("Resuming from %s", args.resume)
-        model = model.from_pretrained(args.resume, num_labels=2, torch_dtype=next(iter(model.parameters())).dtype)
+        model = model.from_pretrained(
+            args.resume, num_labels=2, torch_dtype=next(iter(model.parameters())).dtype
+        )
         model.to(device)
         state = torch.load(Path(args.resume) / "training_state.pt", map_location=device)
         optimizer.load_state_dict(state["optimizer"])
 
     epochs = int(cfg["detector"]["epochs"])
-    best = {"auc": -1.0, "epoch": -1}
+    best: dict[str, float | int] = {"auc": -1.0, "epoch": -1}
     ckpt_dir = Path(cfg["detector"]["output_dir"]) / (args.label or args.mode)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+    # adversarial selector: save every epoch checkpoint to epoch_N subdirs.
+    save_all = args.checkpoint_selector == "adversarial"
 
     t0 = time.time()
     for epoch in range(1, epochs + 1):
@@ -194,18 +242,115 @@ def main() -> None:
         train_loss = train_one_epoch(model, train_loader, optimizer, criterion, device)
         val_metrics = eval_split(model, val_loader, device, criterion)
         LOG.info(
-            "epoch=%d train_loss=%.4f val_loss=%.4f val_auc=%.4f val_f1=%.4f",
-            epoch, train_loss, val_metrics["loss"], val_metrics["auc"], val_metrics["f1"],
+            "epoch=%d train_loss=%.4f val_loss=%.4f val_auc=%.4f val_f1=%.4f selector=%s",
+            epoch,
+            train_loss,
+            val_metrics["loss"],
+            val_metrics["auc"],
+            val_metrics["f1"],
+            args.checkpoint_selector,
         )
-        if val_metrics["auc"] > best["auc"]:
+        if save_all:
+            epoch_dir = ckpt_dir / f"epoch_{epoch}"
+            save_checkpoint(
+                epoch_dir, model, tokenizer, optimizer, epoch, val_metrics["auc"]
+            )
+            LOG.info("Saved epoch checkpoint %s (adversarial selector)", epoch_dir)
+        elif val_metrics["auc"] > best["auc"]:
             best = {"auc": val_metrics["auc"], "epoch": epoch}
-            save_checkpoint(ckpt_dir, model, tokenizer, optimizer, epoch, val_metrics["auc"])
-            LOG.info("Saved new best checkpoint to %s (auc=%.4f)", ckpt_dir, val_metrics["auc"])
+            save_checkpoint(
+                ckpt_dir, model, tokenizer, optimizer, epoch, val_metrics["auc"]
+            )
+            LOG.info("Saved new best checkpoint (val_auc=%.4f)", val_metrics["auc"])
 
-    # Final test-set evaluation using the best checkpoint.
+    # Adversarial checkpoint selection: pick the epoch with lowest evasion on the fake pool.
     from transformers import AutoModelForSequenceClassification
+
+    if save_all and args.fake_pool_csv:
+        LOG.info(
+            "Adversarial selector: scoring %d epoch checkpoints on %s",
+            epochs,
+            args.fake_pool_csv,
+        )
+        best_evasion, best_epoch_dir = 1.1, None
+        for epoch in range(1, epochs + 1):
+            epoch_dir = ckpt_dir / f"epoch_{epoch}"
+            ep_model = (
+                AutoModelForSequenceClassification.from_pretrained(
+                    epoch_dir,
+                    num_labels=2,
+                    torch_dtype=resolve_dtype(cfg["detector"].get("dtype", "bfloat16")),
+                    ignore_mismatched_sizes=True,
+                )
+                .to(device)
+                .eval()
+            )
+            pool_ds = TextClassificationDataset(
+                args.fake_pool_csv, tokenizer, int(cfg["detector"]["max_length"])
+            )
+            pool_loader = DataLoader(
+                pool_ds,
+                batch_size=int(cfg["detector"]["batch_size"]),
+                shuffle=False,
+                pin_memory=False,
+            )
+            pool_metrics = eval_split(ep_model, pool_loader, device, criterion)
+            fake_probs: list[float] = []
+            with torch.inference_mode():
+                for b in DataLoader(
+                    pool_ds,
+                    batch_size=int(cfg["detector"]["batch_size"]),
+                    shuffle=False,
+                    pin_memory=False,
+                ):
+                    logits = (
+                        ep_model(
+                            input_ids=b["input_ids"].to(device),
+                            attention_mask=b["attention_mask"].to(device),
+                        )
+                        .logits.float()
+                        .cpu()
+                    )
+                    fake_probs.extend(
+                        torch.softmax(logits, dim=-1)[:, 1].numpy().tolist()
+                    )
+            pool_labels = [pool_ds[i]["labels"].item() for i in range(len(pool_ds))]
+            import numpy as _np
+
+            fake_mask = _np.asarray(pool_labels) == 0
+            evasion = (
+                float((_np.asarray(fake_probs)[fake_mask] > 0.5).mean())
+                if fake_mask.any()
+                else 1.0
+            )
+            LOG.info(
+                "  epoch=%d pool_auc=%.4f evasion=%.4f",
+                epoch,
+                pool_metrics["auc"],
+                evasion,
+            )
+            del ep_model
+            empty_cache(device)
+            if evasion < best_evasion:
+                best_evasion = evasion
+                best_epoch_dir = epoch_dir
+                best["epoch"] = epoch
+
+        # Promote winning epoch checkpoint to the canonical ckpt_dir.
+        import shutil
+
+        if best_epoch_dir and best_epoch_dir != ckpt_dir:
+            for f in best_epoch_dir.iterdir():
+                shutil.copy2(f, ckpt_dir / f.name)
+        LOG.info(
+            "Adversarial selector chose epoch=%d (evasion=%.4f)",
+            best["epoch"],
+            best_evasion,
+        )
+
     model = AutoModelForSequenceClassification.from_pretrained(
-        ckpt_dir, num_labels=2,
+        ckpt_dir,
+        num_labels=2,
         torch_dtype=resolve_dtype(cfg["detector"].get("dtype", "bfloat16")),
         ignore_mismatched_sizes=True,
     ).to(device)
@@ -213,7 +358,11 @@ def main() -> None:
     elapsed = time.time() - t0
     LOG.info(
         "DONE elapsed=%.1fs test_auc=%.4f test_f1=%.4f test_acc=%.4f mem=%s",
-        elapsed, test_metrics["auc"], test_metrics["f1"], test_metrics["accuracy"], describe(device),
+        elapsed,
+        test_metrics["auc"],
+        test_metrics["f1"],
+        test_metrics["accuracy"],
+        describe(device),
     )
 
     # Persist metrics JSON — condition_A label by default when mode=baseline.

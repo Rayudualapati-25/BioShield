@@ -30,9 +30,10 @@ fixed classifier. \emph{Generator-level} adversarial training instead
 trains a generator alongside the classifier; SeqGAN \cite{yu2017seqgan}
 remains the canonical baseline using policy-gradient REINFORCE. More recent
 work on RL-tuned generators \cite{ouyang2022rlhf} and DPO-style preference
-optimisation \cite{rafailov2023dpo} suggests that hardening generators via
-explicit reward signals is more effective than the SeqGAN regime — which
-our flat Condition~B curve indirectly supports.
+optimisation \cite{rafailov2023dpo} suggests that generator hardening via
+explicit reward signals may produce stronger adversaries than REINFORCE-based
+training — a conjecture our flat Condition~B curve is consistent with,
+though we do not claim those papers establish the comparison directly.
 
 A practical question that this literature largely sidesteps is
 \emph{checkpoint selection}: when retraining yields a sequence of detector
@@ -53,9 +54,10 @@ paraphrase machine-generated essays until they evade detection
 loop instantiates the same idea with Qwen2.5-7B as the rewriter and the
 top-25\% hardest fakes from the prior round as the agent's input. The
 near-zero evasion gain we observe (Condition~C vs. Condition~A) is
-consistent with the negative scaling result in
-\cite{sadasivan2024aigeneratedtext} that paraphrase-based attacks plateau
-when the source generator is already in-family for the detector.
+consistent with the broader paraphrase-attack literature
+\cite{sadasivan2024aigeneratedtext,krishna2023paraphrasing}; we attribute
+the plateau to in-family generator--detector alignment rather than to any
+specific prior finding.
 
 \subsection{Position of BioShield}
 BioShield's contribution is not a new architecture or attack. It is a

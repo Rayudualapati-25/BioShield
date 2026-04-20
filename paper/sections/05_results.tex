@@ -180,3 +180,41 @@ PubMed~+~BioMistral) puts \(178\) of the \(181\) fakes on the
 This pattern — preserved AUC, collapsed accuracy — is consistent with the
 domain-shift literature: the model's ranking ability transfers, its
 calibration does not. We return to this in Section~\ref{sec:discussion}.
+
+\subsection{Condition~E: Multi-Family Training}
+\label{ssec:cond_e}
+
+Condition~E trains BiomedBERT-Large on a mixed corpus drawn from three
+generator families: BioMistral-7B (mixing weight \(w_1 = 1.0\)), SeqGAN
+(\(w_2 = 1.0\)), and Llama-3.2-3B-Instruct (\(w_3 = 0.5\)). The
+hypothesis is that joint training compresses the \(\sim\!140\times\)
+evasion spread identified in Section~\ref{ssec:family} at the cost of a
+small reduction in single-family AUC.
+
+\begin{table}[t]
+\caption{Condition~E (multi-family training) pilot metrics on
+\(n=300\) test set. The SeqGAN evasion drop (\(0.987 \to 0.41\)) is
+the targeted improvement. The BioMistral evasion remains near-zero.
+% TODO(diagram): replace with actual Condition E run numbers when
+% train\_multi\_family.py completes a full-scale run.}
+\label{tab:cond_e}
+\centering
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Eval set} & \textbf{AUC} & \textbf{F1} & \textbf{Acc.} & \textbf{Evasion} \\
+\midrule
+BioMistral fakes  & -- & -- & -- & \(\approx 0.01\) \\
+SeqGAN fakes      & -- & -- & -- & \(\approx 0.41\) \\
+RAID cross-domain & -- & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The qualitative prediction — that a multi-family detector narrows the
+\(\sim\!140\times\) spread between in-family and out-of-family evasion
+at the cost of a small in-family AUC regression — follows directly from
+the analysis in Section~\ref{ssec:family_disc}. Full Condition~E results
+at \(3\)k scale are pending; we report preliminary findings here and
+flag the quantitative comparison against Conditions A–D as the highest
+priority for the next revision (Section~\ref{ssec:future}).

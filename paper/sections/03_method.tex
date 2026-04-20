@@ -93,11 +93,46 @@ detector is actually weak.
 \label{ssec:checkpoint}
 After each retrain round, we keep the epoch checkpoint with the highest
 validation AUC. This is the silent default in most public implementations
-of adversarial-text training. We will show in Section~\ref{sec:discussion}
+of adversarial-text training~\cite{morris2020textattack,hu2023radar}. We will show in Section~\ref{sec:discussion}
 that this choice is what produces the C\,$=$\,D pathology: when the
 baseline detector already hits the validation-AUC ceiling
 (\(0.9990\) on this corpus), no retrained checkpoint can replace it, so
 Condition~D's loop runs but never updates the deployed weights.
+
+\subsection{Multi-Family Training (Condition E)}
+\label{ssec:multifamily}
+
+The generator-family dominance finding (Section~\ref{sec:results}) directly
+motivates a countermeasure: train the detector on fakes drawn from
+\emph{multiple} generator families simultaneously. Condition~E constructs a
+mixed training corpus from three fake sources:
+\begin{enumerate}[leftmargin=*]
+\item \textbf{BioMistral-7B} zero-shot fakes (in-family LLM),
+  mixing weight \(w_1 = 1.0\).
+\item \textbf{SeqGAN} LSTM fakes (out-of-family statistical),
+  mixing weight \(w_2 = 1.0\).
+\item \textbf{Llama-3.2-3B-Instruct} transfer fakes (out-of-family LLM),
+  mixing weight \(w_3 = 0.5\).
+\end{enumerate}
+Weights are relative to the number of real samples. The hypothesis is that
+mixing compresses the \(\sim\!140\times\) evasion spread at the cost of a
+small reduction in in-family AUC — a deployment trade-off that practitioners
+must evaluate against their threat model. Implementation:
+\texttt{models/detector/train\_multi\_family.py}.
+
+\subsection{Adversarial-Aware Checkpoint Selection}
+\label{ssec:ckpt_adv}
+
+The standard selector described in Section~\ref{ssec:checkpoint}
+(best-validation-AUC) is complemented by an \emph{adversarial-aware}
+selector (\texttt{--checkpoint\_selector adversarial}). When activated,
+each epoch checkpoint is scored on the current round's fake pool; the epoch
+with the \emph{lowest evasion rate} on that pool is promoted to the deployed
+weights. This directly decouples selection from validation-AUC saturation:
+even when all epochs sit at AUC $\approx 0.9990$, the adversarial selector
+can identify the epoch that is hardest for the generator to evade. The
+mode is activated by a single CLI flag in \texttt{training/adversarial\_loop.py}
+and requires no architecture changes.
 
 \subsection{Reproducibility Controls}
 \label{ssec:repro}

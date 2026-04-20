@@ -15,8 +15,7 @@ clinical-information platforms.
 A recurring promise in the AI-text-detection literature is that
 \emph{adversarial training} — iteratively generating fakes, retraining the
 detector against them, and repeating — yields a more robust binary
-classifier \cite{zellers2019defending,gehrmann2019gltr,
-mitchell2023detectgpt}. We set out to test whether this promise survives a
+classifier \cite{zellers2019defending,mitchell2023detectgpt,hu2023radar}. We set out to test whether this promise survives a
 controlled, fully reproducible biomedical pipeline running on commodity
 hardware (a single Apple~M3~Max). Our pipeline pairs a
 \textbf{BiomedBERT-Large} detector \cite{gu2021biomedbert} with two
@@ -62,6 +61,26 @@ paper's contribution rather than an embarrassment to hide.
   one-command rerun script are released; the entire study costs
   \(10\,\mathrm{h}\,01\,\mathrm{m}\) on a single laptop.
 \end{enumerate}
+
+\item \textbf{Adversarial-aware checkpoint selection.} We implement a
+  drop-in replacement for best-val-AUC selection
+  (\texttt{--checkpoint\_selector adversarial}) that scores all epoch
+  checkpoints on the round's live fake pool and promotes the epoch with the
+  \emph{lowest evasion rate}. This is designed to dissolve the C\,$=$\,D
+  pathology when the val-AUC ceiling is already saturated.
+\item \textbf{Multi-family training (Condition E).} We implement a
+  BiomedBERT-Large detector trained jointly on BioMistral-7B, SeqGAN, and
+  Llama-3.2-3B fakes. The multi-family corpus is assembled by
+  \texttt{models/detector/train\_multi\_family.py} and is designed to
+  compress the \(\sim\!140\times\) evasion spread identified in
+  Contribution~1.
+\item \textbf{Post-hoc calibration.} We implement temperature-scaling
+  calibration~\cite{guo2017calibration}
+  (\texttt{evaluation/calibration.py}) that learns an optimal decision
+  threshold and temperature on a held-out calibration set. Applied to
+  Condition~A's detector on the RAID probe, calibration recovers meaningful
+  accuracy by correcting the threshold shift that produces the
+  AUC--accuracy gap.
 
 \textbf{Paper organisation.} Section~\ref{sec:related} surveys
 machine-generated text detection, adversarial training for text classifiers,

@@ -1,0 +1,46 @@
+<mxfile host="65bd71144e" compressed="false">
+    <diagram id="bioshield-simple" name="BioShield Simple Architecture">
+        <mxGraphModel dx="2649" dy="1129" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="900" background="#ffffff" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="2" value="BioShield Architecture" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F7F3E8;strokeColor=#C9B458;fontStyle=1;fontSize=24;align=center;verticalAlign=middle;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="20" width="1820" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="3" value="Shared Support Layer: configs/*.yaml | utils/*.py for device, env, logging, seed | scripts for automation | tests/test_smoke.py" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E8;strokeColor=#D6B656;fontSize=15;align=center;verticalAlign=middle;spacing=10;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="100" width="1820" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="4" value="1. Input Sources&#xa;&#xa;PubMed text&#xa;Synthetic dry-run data&#xa;Local model weights&#xa;Benchmark datasets" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F7FBFF;strokeColor=#6C8EBF;fontStyle=1;fontSize=17;spacing=12;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="280" width="260" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="5" value="2. Data Preparation&#xa;&#xa;data/prepare_data.py&#xa;clean, deduplicate, filter&#xa;build train / val / test / transfer splits" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FCF8;strokeColor=#82B366;fontStyle=1;fontSize=17;spacing=12;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="280" width="280" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="6" value="3. Training and Hardening&#xa;&#xa;Baseline detector: train_detector.py&#xa;Adversarial loop: adversarial_loop.py&#xa;Condition B: SeqGAN&#xa;Conditions C / D: BioMistral + Qwen rewrite&#xa;Retraining for B and D" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FCF8;strokeColor=#82B366;fontStyle=1;fontSize=17;spacing=12;" parent="1" vertex="1">
+                    <mxGeometry x="790" y="260" width="360" height="210" as="geometry"/>
+                </mxCell>
+                <mxCell id="7" value="4. Evaluation&#xa;&#xa;eval_pipeline.py&#xa;metrics.py&#xa;raid_benchmark.py&#xa;visualization.py" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FCF8;strokeColor=#82B366;fontStyle=1;fontSize=17;spacing=12;" parent="1" vertex="1">
+                    <mxGeometry x="1240" y="280" width="250" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="8" value="5. Outputs&#xa;&#xa;Checkpoints&#xa;Round data&#xa;Metrics JSON and CSV logs&#xa;Plots&#xa;Paper, docs, presentation files" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF5F4;strokeColor=#B85450;fontStyle=1;fontSize=17;spacing=12;" parent="1" vertex="1">
+                    <mxGeometry x="1580" y="280" width="250" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="9" value="Label convention used across the repo: 1 = real, 0 = fake." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F7F3E8;strokeColor=#C9B458;fontSize=14;align=center;verticalAlign=middle;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="560" width="900" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="100" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#5E6B73;endArrow=block;endFill=1;" parent="1" source="4" target="5" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="101" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#5E6B73;endArrow=block;endFill=1;" parent="1" source="5" target="6" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="102" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#5E6B73;endArrow=block;endFill=1;" parent="1" source="6" target="7" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="103" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#5E6B73;endArrow=block;endFill=1;" parent="1" source="7" target="8" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
